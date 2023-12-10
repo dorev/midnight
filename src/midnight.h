@@ -6,17 +6,6 @@
 
 namespace Midnight
 {
-    using Decibel = F32;
-
-    F32 LinearToDecibel(F32 linearVolume)
-    {
-        if (linearVolume <= 0.0f)
-        {
-            return -80.0f;
-        }
-        return 20.0f * std::log10(linearVolume);
-    }
-
     enum class Error : U32
     {
         Ok = 0,
@@ -28,6 +17,26 @@ namespace Midnight
         NotYetImplemented,
         Unknown = U32MAX
     };
+
+    using Decibel = F32;
+
+    Decibel LinearToDecibel(F32 linearVolume)
+    {
+        if (linearVolume <= 0.0f)
+        {
+            return -80.0f;
+        }
+        return 20.0f * std::log10(linearVolume);
+    }
+
+    F32 DecibelToLinear(F32 decibel)
+    {
+        if (decibel <= -80.0f)
+        {
+            return 0.0f;
+        }
+        return std::pow(10.0f, decibel / 20.0f);
+    }
 
     enum class AudioDeviceType
     {
@@ -47,7 +56,6 @@ namespace Midnight
     struct AudioBuffer
     {
         SharedPtr<F32[]> samplesData;
-        SharedPtr<U8[]> metadata;
         U32 channels;
         U32 sampleRate;
         U32 samples;
@@ -60,114 +68,104 @@ namespace Midnight
         SharedPtr<AudioBuffer> _AudioBuffer;
     };
 
-    using AudioPlaybackCallback = void(*)(U8* destination, U32 channels, U32 frames, Error error);
-
-    class IAudioDeviceManager
-    {
-    public:
-        virtual Error Initialize() = 0;
-        virtual Error Shutdown() = 0;
-        virtual Error RegisterPlaybackCallback(AudioPlaybackCallback callback) = 0;
-        virtual Error EnumerateDevices(U32& deviceCount, const AudioDeviceDescription* devices) = 0;
-        virtual Error SelectPlaybackDevice(const AudioDeviceDescription& device) = 0;
-        virtual Error Start() = 0;
-        virtual Error Stop() = 0;
-    };
-
-    class IAudioDecoder
-    {
-    public:
-        virtual Error Initialize() = 0;
-        virtual Error Shutdown() = 0;
-        virtual Error DecodeFile(const String& filePath, AudioBuffer& audioData) = 0;
-    };
-
-    class IAudioResampler
-    {
-    public:
-        virtual Error Initialize() = 0;
-        virtual Error Shutdown() = 0;
-        virtual Error Resample(const AudioBuffer& input, AudioBuffer& output) = 0;
-    };
-
-    class IAudioChannelRemapper
-    {
-    public:
-        virtual Error Initialize() = 0;
-        virtual Error Shutdown() = 0;
-        virtual Error Remap(const AudioBuffer& input, AudioBuffer& output) = 0;
-    };
-
-    class MixerNode
-    {
-    private:
-        friend class Mixer;
-
-    public:
-        Error ConnectPrevious(SharedPtr<MixerNode> node);
-        Error ConnectNext(SharedPtr<MixerNode> node);
-        Bool ReadyToProcess() const;
-
-        enum MixerNodeState
-        {
-            NeedsProcessing,
-            Processing,
-            DoneProcessing
-        };
-
-        MixerNodeState GetState() const { return _State; }
-
-    protected:
-        virtual Error Process(const AudioBuffer& input, AudioBuffer& output) = 0;
-
-    private:
-        SharedPtr<MixerNode> _Previous;
-        SharedPtr<MixerNode> _Next;
-        MixerNodeState _State;
-    };
-
     enum class AudioParameterType
     {
         Unsigned,
         Signed,
         Float,
-        Boolean
+        Boolean,
+        Transform
     };
 
-    class AudioParameter
+    struct AudioParameter
+    {
+        String name;
+        AudioParameterType type;
+        Variant<U32, S32, F32, Bool, Transform> value;
+    };
+
+    enum class AudioNodeState
+    {
+        Dirty,
+        Processing,
+        Clean
+    };
+
+    class AudioNode
     {
     private:
-        AudioParameterType _Type;
-        Variant<U32, S32, F32, Bool> _Value;
-        String _Name;
-    };
+        friend class AudioGraph;
 
-    class MixerEffectNodeBase : public MixerNode
-    {
     public:
-        Error Process(const AudioBuffer& input, AudioBuffer& output);
+        Error ConnectPrevious(SharedPtr<AudioNode>& node)
+        {
+            return Error::NotYetImplemented;
+        }
+
+        Error ConnectNext(SharedPtr<AudioNode>& node)
+        {
+            return Error::NotYetImplemented;
+        }
+
+        Bool ReadyToProcess() const
+        {
+            return true;
+        }
+
+        AudioNodeState GetState() const
+        {
+            return _State;
+        }
+
+    protected:
+        virtual Error Process(const AudioBuffer& input, AudioBuffer& output) = 0;
 
     protected:
         Vector<SharedPtr<AudioParameter>> _Parameters;
+        Vector<SharedPtr<AudioNode>> _InputNodes;
+        Vector<SharedPtr<AudioNode>> _OutputNodes;
+        Atomic<AudioNodeState> _State;
     };
 
-    class MixerOutputNode : public MixerNode
+    class AudioNodeConnectionResult
     {
     public:
-        Error Process(const AudioBuffer& input, AudioBuffer& output);
+        SharedPtr<AudioNode> node;
+        Error error;
 
-    private:
-        using MixerNode::ConnectNext;
+        AudioNodeConnectionResult(SharedPtr<AudioNode> node, Error error)
+            : node(node), error(error)
+        {
+        }
+
+        AudioNodeConnectionResult& operator>>(SharedPtr<AudioNode>& right)
+        {
+            if (error == Error::Ok)
+            {
+                error = node->ConnectNext(right);
+                if (error == Error::Ok)
+                {
+                    node = right;
+                }
+            }
+            return *this;
+        }
     };
 
-    class Mixer
+    AudioNodeConnectionResult operator>>(SharedPtr<AudioNode>& left, SharedPtr<AudioNode>& right)
+    {
+        Error error = left->ConnectNext(right);
+        return AudioNodeConnectionResult(right, error);
+    }
+
+    class AudioGraph
     {
     public:
-        template <class MixerNodeType, class... Args>
-        EnableIf<IsDerivedFrom<MixerNode, MixerNodeType>, SharedPtr<MixerNodeType>> CreateNode(Args... args);
+        template <class AudioNodeType, class... Args>
+        EnableIf<IsDerivedFrom<AudioNode, AudioNodeType>, SharedPtr<AudioNodeType>> CreateNode(Args... args);
 
     private:
-        Vector<SharedPtr<MixerNode>> _Nodes;
+        Vector<SharedPtr<AudioNode>> _Nodes;
     };
 
     class AudioSource
@@ -177,35 +175,80 @@ namespace Midnight
         Error Pause(F32 fadeOut = 0.05f);
         Error Stop(F32 fadeOut = 0.05f);
         Error Seek(U32 position);
+        U32 samplePosition;
+        Bool loop;
 
     private:
         U32 _Id;
-        U32 _Position;
-        SharedPtr<const AudioBuffer> _AudioBuffer;
-        SharedPtr<MixerNode> _MixerInput;
+        U32 _Priority;
+        SharedPtr<AudioAsset> _AudioAsset;
+        SharedPtr<AudioNode> _InputNode;
+    };
+
+    class IAudioService
+    {
+    public:
+        virtual Error Initialize() = 0;
+        virtual Error Shutdown() = 0;
+    };
+
+    using AudioPlaybackCallback = void(*)(U8* destination, U32 channels, U32 frames, Error error);
+
+    class IAudioDeviceManager : public IAudioService
+    {
+    public:
+        virtual Error RegisterPlaybackCallback(AudioPlaybackCallback callback) = 0;
+        virtual Error EnumerateDevices(U32& deviceCount, const AudioDeviceDescription* devices) = 0;
+        virtual Error SelectPlaybackDevice(const AudioDeviceDescription& device) = 0;
+        virtual Error Start() = 0;
+        virtual Error Stop() = 0;
+    };
+
+    class IAudioDecoder : public IAudioService
+    {
+    public:
+        virtual Error DecodeFile(const String& filePath, AudioBuffer& destination) = 0;
+    };
+
+    class IAudioResampler : public IAudioService
+    {
+    public:
+        virtual Error Resample(const AudioBuffer& source, AudioBuffer& destination) = 0;
+    };
+
+    class IAudioChannelRemapper : public IAudioService
+    {
+    public:
+        virtual Error Remap(const AudioBuffer& source, AudioBuffer& destination) = 0;
     };
 
     struct AudioManagerServices
     {
+    public:
         SharedPtr<IAudioDeviceManager> deviceManager;
         SharedPtr<IAudioDecoder> decoder;
         SharedPtr<IAudioResampler> resampler;
         SharedPtr<IAudioChannelRemapper> remapper;
     };
 
+    struct AudioManagerConfig
+    {
+        U32 maxAudibleSources;
+    };
+
     class AudioManager
     {
     public:
-        AudioManager(const AudioManagerServices& services)
-            : _Services(services)
-        {
-        }
-
-        Error Initialize();
-        SharedPtr<AudioAsset> CreateAudioAsset(const String& filePath);
-        SharedPtr<AudioSource> CreateAudioSource(const SharedPtr<AudioAsset>& audioAsset);
+        Error Initialize(const AudioManagerServices& services, const AudioManagerConfig& config);
+        Error Shutdown();
+        SharedPtr<AudioAsset> LoadAudioAsset(const String& filePath);
+        Error UnloadAudioAsset(const SharedPtr<AudioAsset>& audioAsset);
+        SharedPtr<AudioSource> CreateAudioSource(const SharedPtr<AudioAsset>& audioAsset, const SharedPtr<AudioNode>& inputNode);
+        Error DestroyAudioSource(const SharedPtr<AudioSource>& audioSource);
 
     private:
         AudioManagerServices _Services;
+        Map<SharedPtr<AudioAsset>, Vector<SharedPtr<AudioSource>>> _AudioSources;
+        AudioGraph _AudioGraph;
     };
 }

@@ -704,7 +704,6 @@ MemberFunction(ClassType*, ReturnType(ClassType::*)(Args...))->MemberFunction<Cl
 // Multithreading
 ///////////////////////////////////////////////////////////////////////////////
 
-
 template <class T>
 using Atomic = std::atomic<T>;
 
@@ -857,5 +856,205 @@ private:
         _Id = 0;
     }
 };
+
+///////////////////////////////////////////////////////////////////////////////
+// World positioning
+///////////////////////////////////////////////////////////////////////////////
+
+struct Vector3
+{
+    F32 x, y, z;
+
+    Vector3(F32 x = 0.0f, F32 y = 0.0f, F32 z = 0.0f)
+        : x(x)
+        , y(y)
+        , z(z)
+    {
+    }
+
+    Vector3 operator+(const Vector3& other) const
+    {
+        return Vector3(x + other.x, y + other.y, z + other.z);
+    }
+
+    Vector3 operator-(const Vector3& other) const
+    {
+        return Vector3(x - other.x, y - other.y, z - other.z);
+    }
+
+    Vector3 operator*(F32 scalar) const
+    {
+        return Vector3(x * scalar, y * scalar, z * scalar);
+    }
+
+    F32 Dot(const Vector3& other) const
+    {
+        return x * other.x + y * other.y + z * other.z;
+    }
+
+    Vector3 Cross(const Vector3& other) const
+    {
+        return Vector3(y * other.z - z * other.y, z * other.x - x * other.z, x * other.y - y * other.x);
+    }
+
+    F32 Length() const
+    {
+        return std::sqrt(x * x + y * y + z * z);
+    }
+
+    Vector3& Normalize()
+    {
+        F32 len = Length();
+        if (len > 0)
+        {
+            x /= len;
+            y /= len;
+            z /= len;
+        }
+        return *this;
+    }
+
+    bool operator==(const Vector3& other) const
+    {
+        return x == other.x && y == other.y && z == other.z;
+    }
+
+    bool operator!=(const Vector3& other) const
+    {
+        return !(*this == other);
+    }
+};
+
+struct Quaternion
+{
+    F32 x, y, z, w;
+
+    Quaternion(F32 x = 0.0f, F32 y = 0.0f, F32 z = 0.0f, F32 w = 1.0f)
+        : x(x)
+        , y(y)
+        , z(z)
+        , w(w)
+    {
+    }
+
+    Quaternion operator*(const Quaternion& other) const
+    {
+        return Quaternion(
+            w * other.x + x * other.w + y * other.z - z * other.y,
+            w * other.y - x * other.z + y * other.w + z * other.x,
+            w * other.z + x * other.y - y * other.x + z * other.w,
+            w * other.w - x * other.x - y * other.y - z * other.z
+        );
+    }
+
+    Quaternion& Normalize()
+    {
+        F32 len = std::sqrt(x * x + y * y + z * z + w * w);
+        if (len > 0)
+        {
+            x /= len;
+            y /= len;
+            z /= len;
+            w /= len;
+        }
+        return *this;
+    }
+
+    bool operator==(const Quaternion& other) const
+    {
+        return x == other.x && y == other.y && z == other.z && w == other.w;
+    }
+
+    bool operator!=(const Quaternion& other) const
+    {
+        return !(*this == other);
+    }
+};
+
+struct Point
+{
+    F32 x, y, z;
+
+    Point(F32 x = 0.0f, F32 y = 0.0f, F32 z = 0.0f)
+        : x(x)
+        , y(y)
+        , z(z)
+    {
+    }
+
+    bool operator==(const Point& other) const
+    {
+        return x == other.x && y == other.y && z == other.z;
+    }
+
+    bool operator!=(const Point& other) const
+    {
+        return !(*this == other);
+    }
+};
+
+F32 Distance(const Point& p1, const Point& p2)
+{
+    return std::sqrt((p2.x - p1.x) * (p2.x - p1.x) + (p2.y - p1.y) * (p2.y - p1.y) + (p2.z - p1.z) * (p2.z - p1.z));
+}
+
+Point operator+(const Point& point, const Vector3& vector)
+{
+    return Point(point.x + vector.x, point.y + vector.y, point.z + vector.z);
+}
+
+Point operator-(const Point& point, const Vector3& vector)
+{
+    return Point(point.x - vector.x, point.y - vector.y, point.z - vector.z);
+}
+
+Vector3 operator-(const Point& p1, const Point& p2)
+{
+    return Vector3(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
+}
+
+struct Transform
+{
+    Point position;
+    Quaternion orientation;
+
+    Transform(const Point& position = Point(), const Quaternion& orientation = Quaternion())
+        : position(position)
+        , orientation(orientation)
+    {
+    }
+
+    void SetPosition(const Point& newPosition)
+    {
+        position = newPosition;
+    }
+
+    void SetOrientation(const Quaternion& newOrientation)
+    {
+        orientation = newOrientation;
+    }
+
+    void Translate(const Vector3& translation)
+    {
+        position = position + translation;
+    }
+
+    void Rotate(const Quaternion& rotation)
+    {
+        orientation = rotation * orientation;
+        orientation.Normalize();
+    }
+
+    bool operator==(const Transform& other) const
+    {
+        return position == other.position && orientation == other.orientation;
+    }
+
+    bool operator!=(const Transform& other) const
+    {
+        return !(*this == other);
+    }
+};
+
 
 } // namespace Midnight
