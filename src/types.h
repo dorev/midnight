@@ -1,5 +1,18 @@
 #pragma once
 
+#include <atomic>
+#include <mutex>
+#include <thread>
+#include <utility>
+#include <type_traits>
+#include <string>
+#include <sstream>
+#include <vector>
+#include <map>
+#include <list>
+#include <variant>
+#include <algorithm>
+#include <memory>
 
 namespace Midnight
 {
@@ -7,9 +20,6 @@ namespace Midnight
 ///////////////////////////////////////////////////////////////////////////////
 // Utilities
 ///////////////////////////////////////////////////////////////////////////////
-
-#include <utility>
-#include <type_traits>
 
 struct Empty
 {
@@ -74,14 +84,6 @@ constexpr F64 F64MIN = DBL_MIN;
 ///////////////////////////////////////////////////////////////////////////////
 // Containers
 ///////////////////////////////////////////////////////////////////////////////
-
-#include <string>
-#include <sstream>
-#include <vector>
-#include <map>
-#include <list>
-#include <variant>
-#include <algorithm>
 
 //
 // String
@@ -155,7 +157,7 @@ public:
         return _String.substr(start, length);
     }
 
-    U32 Find(const String& substr) const
+    U64 Find(const String& substr) const
     {
         return _String.find(substr._String);
     }
@@ -447,9 +449,9 @@ public:
         _List.clear();
     }
 
-    UInt32 Size() const
+    U64 Size() const
     {
-        return static_cast<U32>(_List.size());
+        return _List.size();
     }
 
     Bool Empty() const
@@ -622,8 +624,6 @@ public:
 // Pointers
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <memory>
-
 template <class T>
 using UniquePtr = std::unique_ptr<T>;
 
@@ -702,9 +702,6 @@ MemberFunction(ClassType*, ReturnType(ClassType::*)(Args...))->MemberFunction<Cl
 // Multithreading
 ///////////////////////////////////////////////////////////////////////////////
 
-#include <atomic>
-#include <mutex>
-#include <thread>
 
 template <class T>
 using Atomic = std::atomic<T>;

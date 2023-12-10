@@ -1,7 +1,22 @@
+#pragma once
+
+#include <cmath>
+
 #include "types.h"
 
 namespace Midnight
 {
+    using Decibel = F32;
+
+    F32 LinearToDecibel(F32 linearVolume)
+    {
+        if (linearVolume <= 0.0f)
+        {
+            return -80.0f;
+        }
+        return 20.0f * std::log10(linearVolume);
+    }
+
     enum class Error : U32
     {
         Ok = 0,
@@ -31,6 +46,21 @@ namespace Midnight
         U32 sampleRate;
         Bool defaultDevice;
         AudioDeviceType deviceType;
+    };
+
+    class AudioAsset
+    {
+        String _Name;
+        Decibel _GlobalVolumeAdjustment;
+    };
+
+    struct AudioBuffer
+    {
+        SharedPtr<F32[]> samplesData;
+        SharedPtr<U8[]> metadata;
+        U32 channels;
+        U32 sampleRate;
+        U32 samples;
     };
 
     using AudioPlaybackCallback = void(*)(U8* destination, U32 channels, U32 frames, Error error);
@@ -71,58 +101,6 @@ namespace Midnight
         virtual Error Remap(const AudioBuffer& input, AudioBuffer& output) = 0;
     };
 
-    struct AudioBuffer
-    {
-        SharedPtr<U8[]> samplesData;
-        SharedPtr<U8[]> metadata;
-        U32 channels;
-        U32 sampleRate;
-        U32 samples;
-    };
-
-    class AudioSource
-    {
-    public:
-        Error Play(F32 fadeIn = 0.0f);
-        Error Pause(F32 fadeOut = 0.05f);
-        Error Stop(F32 fadeOut = 0.05f);
-        Error Seek(U32 position);
-
-    private:
-        U32 _Id;
-        U32 _Position;
-        SharedPtr<const AudioBuffer> _AudioBuffer;
-        SharedPtr<MixerInputNode> _MixerInput;
-    };
-
-    enum class AudioParameterType
-    {
-        Unsigned,
-        Signed,
-        Float,
-        Boolean
-    };
-
-    class AudioParameter
-    {
-    private:
-        AudioParameterType _Type;
-        Variant<U32, S32, F32, Bool> _Value;
-        SharedPtr<MixerEffectNodeBase> _MixerEffectNode;
-        String _Name;
-    };
-
-    class Mixer
-    {
-    public:
-        SharedPtr<MixerInputNode> CreateInputNode();
-
-    private:
-        Vector<SharedPtr<MixerInputNode>> _Inputs;
-        Vector<SharedPtr<MixerOutputNode>> _Outputs;
-        Vector<SharedPtr<MixerEffectNodeBase>> _Nodes;
-    };
-
     class MixerNode
     {
     private:
@@ -151,21 +129,62 @@ namespace Midnight
         MixerNodeState _State;
     };
 
+    enum class AudioParameterType
+    {
+        Unsigned,
+        Signed,
+        Float,
+        Boolean
+    };
+
+    class AudioParameter
+    {
+    private:
+        AudioParameterType _Type;
+        Variant<U32, S32, F32, Bool> _Value;
+        String _Name;
+    };
+
     class MixerEffectNodeBase : public MixerNode
     {
-     protected:
+    public:
+        Error Process(const AudioBuffer& input, AudioBuffer& output);
+
+    protected:
         Vector<SharedPtr<AudioParameter>> _Parameters;
     };
 
-    class MixerInputNode : public MixerNode
-    {
-    private:
-        using MixerNode::ConnectPrevious;
-    };
-    
     class MixerOutputNode : public MixerNode
     {
+    public:
+        Error Process(const AudioBuffer& input, AudioBuffer& output);
+
     private:
         using MixerNode::ConnectNext;
+    };
+
+    class Mixer
+    {
+    public:
+        SharedPtr<MixerNode> CreateNode();
+
+    private:
+        Vector<SharedPtr<MixerOutputNode>> _Outputs;
+        Vector<SharedPtr<MixerEffectNodeBase>> _Nodes;
+    };
+
+    class AudioSource
+    {
+    public:
+        Error Play(F32 fadeIn = 0.0f);
+        Error Pause(F32 fadeOut = 0.05f);
+        Error Stop(F32 fadeOut = 0.05f);
+        Error Seek(U32 position);
+
+    private:
+        U32 _Id;
+        U32 _Position;
+        SharedPtr<const AudioBuffer> _AudioBuffer;
+        SharedPtr<MixerNode> _MixerInput;
     };
 }

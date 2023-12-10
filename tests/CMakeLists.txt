@@ -14,4 +14,5 @@ target_include_directories(${PROJECT_NAME}
     PUBLIC ${GTEST_ROOT}/googletest/include
     PUBLIC ${GTEST_ROOT}/googlemock
     PUBLIC ${GTEST_ROOT}/googlemock/include
+    PUBLIC ${CMAKE_SOURCE_DIR}/src
 )
