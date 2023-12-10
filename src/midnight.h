@@ -29,10 +29,6 @@ namespace Midnight
         Unknown = U32MAX
     };
 
-    class AudioManager
-    {
-    };
-
     enum class AudioDeviceType
     {
         Playback,
@@ -48,12 +44,6 @@ namespace Midnight
         AudioDeviceType deviceType;
     };
 
-    class AudioAsset
-    {
-        String _Name;
-        Decibel _GlobalVolumeAdjustment;
-    };
-
     struct AudioBuffer
     {
         SharedPtr<F32[]> samplesData;
@@ -61,6 +51,13 @@ namespace Midnight
         U32 channels;
         U32 sampleRate;
         U32 samples;
+    };
+
+    class AudioAsset
+    {
+        String _Name;
+        Decibel _GlobalVolumeAdjustment;
+        SharedPtr<AudioBuffer> _AudioBuffer;
     };
 
     using AudioPlaybackCallback = void(*)(U8* destination, U32 channels, U32 frames, Error error);
@@ -166,11 +163,11 @@ namespace Midnight
     class Mixer
     {
     public:
-        SharedPtr<MixerNode> CreateNode();
+        template <class MixerNodeType, class... Args>
+        EnableIf<IsDerivedFrom<MixerNode, MixerNodeType>, SharedPtr<MixerNodeType>> CreateNode(Args... args);
 
     private:
-        Vector<SharedPtr<MixerOutputNode>> _Outputs;
-        Vector<SharedPtr<MixerEffectNodeBase>> _Nodes;
+        Vector<SharedPtr<MixerNode>> _Nodes;
     };
 
     class AudioSource
@@ -186,5 +183,29 @@ namespace Midnight
         U32 _Position;
         SharedPtr<const AudioBuffer> _AudioBuffer;
         SharedPtr<MixerNode> _MixerInput;
+    };
+
+    struct AudioManagerServices
+    {
+        SharedPtr<IAudioDeviceManager> deviceManager;
+        SharedPtr<IAudioDecoder> decoder;
+        SharedPtr<IAudioResampler> resampler;
+        SharedPtr<IAudioChannelRemapper> remapper;
+    };
+
+    class AudioManager
+    {
+    public:
+        AudioManager(const AudioManagerServices& services)
+            : _Services(services)
+        {
+        }
+
+        Error Initialize();
+        SharedPtr<AudioAsset> CreateAudioAsset(const String& filePath);
+        SharedPtr<AudioSource> CreateAudioSource(const SharedPtr<AudioAsset>& audioAsset);
+
+    private:
+        AudioManagerServices _Services;
     };
 }

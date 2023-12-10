@@ -46,6 +46,8 @@ using RemoveExtent = typename std::remove_extent<T>::type;
 template <bool B, class T = void>
 using EnableIf = typename std::enable_if<B, T>::type;
 
+template <class Base, class Derived>
+constexpr bool IsDerivedFrom = std::is_base_of<Base, Derived>::value;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Primitive type aliases
