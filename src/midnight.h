@@ -6,7 +6,7 @@
 
 namespace Midnight
 {
-    enum class Error : U32
+    enum Error : U32
     {
         Ok = 0,
         Nullptr,
@@ -152,10 +152,30 @@ namespace Midnight
         }
     };
 
-    AudioNodeConnectionResult operator>>(SharedPtr<AudioNode>& left, SharedPtr<AudioNode>& right)
+    template <class T>
+    AudioNodeConnectionResult operator>>(AudioNodeConnectionResult& result, const SharedPtr<T>& right)
     {
-        Error error = left->ConnectNext(right);
-        return AudioNodeConnectionResult(right, error);
+        static_assert(IsDerivedFrom<AudioNode, T>, "Right operand must be derived from AudioNode");
+
+        if (result.error == Error::Ok)
+        {
+            result.error = result.node->ConnectNext(std::static_pointer_cast<AudioNode>(right));
+            if (result.error == Error::Ok)
+            {
+                result.node = right;
+            }
+        }
+        return result;
+    }
+
+    template <typename T, typename U>
+    AudioNodeConnectionResult operator>>(const SharedPtr<T>& left, const SharedPtr<U>& right)
+    {
+        static_assert(IsDerivedFrom<AudioNode, T>, "Left operand must be derived from AudioNode");
+        static_assert(IsDerivedFrom<AudioNode, U>, "Right operand must be derived from AudioNode");
+
+        Error error = left->ConnectNext(std::static_pointer_cast<AudioNode>(right));
+        return AudioNodeConnectionResult(std::static_pointer_cast<AudioNode>(right), error);
     }
 
     class AudioGraph
