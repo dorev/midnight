@@ -70,10 +70,13 @@ namespace Midnight
 
     enum class AudioParameterType
     {
-        Unsigned,
-        Signed,
-        Float,
+        Unsigned32,
+        Signed32,
+        Float32,
         Boolean,
+        Point,
+        Vector3,
+        Quaternion,
         Transform
     };
 
@@ -81,7 +84,7 @@ namespace Midnight
     {
         String name;
         AudioParameterType type;
-        Variant<U32, S32, F32, Bool, Transform> value;
+        Variant<U32, S32, F32, Bool, Point, Vector3, Quaternion, Transform> value;
     };
 
     enum class AudioNodeState
@@ -121,9 +124,9 @@ namespace Midnight
         virtual Error Process(const AudioBuffer& input, AudioBuffer& output) = 0;
 
     protected:
-        Vector<SharedPtr<AudioParameter>> _Parameters;
-        Vector<SharedPtr<AudioNode>> _InputNodes;
-        Vector<SharedPtr<AudioNode>> _OutputNodes;
+        Set<SharedPtr<AudioParameter>> _Parameters;
+        Set<SharedPtr<AudioNode>> _InputNodes;
+        Set<SharedPtr<AudioNode>> _OutputNodes;
         Atomic<AudioNodeState> _State;
     };
 
@@ -185,7 +188,7 @@ namespace Midnight
         EnableIf<IsDerivedFrom<AudioNode, AudioNodeType>, SharedPtr<AudioNodeType>> CreateNode(Args... args);
 
     private:
-        Vector<SharedPtr<AudioNode>> _Nodes;
+        Set<SharedPtr<AudioNode>> _Nodes;
     };
 
     class AudioSource
@@ -197,6 +200,7 @@ namespace Midnight
         Error Seek(U32 position);
         U32 samplePosition;
         Bool loop;
+        Set<SharedPtr<AudioParameter>> parameters;
 
     private:
         U32 _Id;
@@ -268,7 +272,8 @@ namespace Midnight
 
     private:
         AudioManagerServices _Services;
-        Map<SharedPtr<AudioAsset>, Vector<SharedPtr<AudioSource>>> _AudioSources;
+        AudioManagerConfig _Config;
+        Map<SharedPtr<AudioAsset>, Set<SharedPtr<AudioSource>>> _AudioSources;
         AudioGraph _AudioGraph;
     };
 }

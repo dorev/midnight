@@ -159,9 +159,9 @@ public:
         return _String.substr(start, length);
     }
 
-    U64 Find(const String& substr) const
+    U32 Find(const String& substr) const
     {
-        return _String.find(substr._String);
+        return static_cast<U32>(_String.find(substr._String));
     }
 
     void Replace(const String& from, const String& to)
@@ -340,6 +340,85 @@ public:
 };
 
 //
+// Set
+//
+
+template <class T>
+using SetInternal = std::set<T>;
+
+template <class T>
+class Set
+{
+private:
+    SetInternal<T> _Set;
+
+public:
+    template <class... Args>
+    Set(Args... args)
+        : _Set(std::forward<Args>(args)...)
+    {
+    }
+
+    void Insert(const T& value)
+    {
+        _Set.insert(value);
+    }
+
+    Bool Contains(const T& value) const
+    {
+        return _Set.find(value) != _Set.end();
+    }
+
+    U32 Size() const
+    {
+        return static_cast<U32>(_Set.size());
+    }
+
+    Bool Empty() const
+    {
+        return _Set.empty();
+    }
+
+    Bool Remove(const T& value)
+    {
+        return _Set.erase(value) > 0;
+    }
+
+    Bool operator==(const Set& other) const
+    {
+        return _Set == other._Set;
+    }
+
+    Bool operator!=(const Set& other) const
+    {
+        return _Set != other._Set;
+    }
+
+    //
+    // `for range` iteration facilities
+    //
+    auto begin()
+    {
+        return _Set.begin();
+    }
+
+    auto end()
+    {
+        return _Set.end();
+    }
+
+    const auto begin() const
+    {
+        return _Set.cbegin();
+    }
+
+    const auto end() const
+    {
+        return _Set.cend();
+    }
+};
+
+//
 // Map
 //
 
@@ -451,9 +530,9 @@ public:
         _List.clear();
     }
 
-    U64 Size() const
+    U32 Size() const
     {
-        return _List.size();
+        return static_cast<U32>(_List.size());
     }
 
     Bool Empty() const
@@ -811,9 +890,9 @@ public:
     }
 
 public:
-    Thread(const String& name, Callable function)
+    Thread(const String& name, Callable callable)
         : _Name(name)
-        , _Function(std::move(function))
+        , _Function(std::move(callable))
     {
     }
 
@@ -1055,6 +1134,5 @@ struct Transform
         return !(*this == other);
     }
 };
-
 
 } // namespace Midnight
