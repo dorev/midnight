@@ -25,6 +25,9 @@ struct Empty
 {
 };
 
+template <class T, class U>
+constexpr bool IsSame = std::is_same<T, U>::value;
+
 template <class T>
 constexpr bool IsPointer = std::is_pointer<T>::value;
 
