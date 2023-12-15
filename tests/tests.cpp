@@ -3,25 +3,22 @@
 
 using namespace Midnight;
 
-class Tests : public ::testing::Test
+class CompilationTests : public ::testing::Test
 {
 };
 
 class TestNode : public AudioNode
 {
-    virtual Error Process(const AudioBuffer& input, AudioBuffer& output)
-    {
-        return Ok;
-    }
 };
 
-TEST_F(Tests, NextTest)
+TEST_F(CompilationTests, AudioGraph)
 {
-    SharedPtr<TestNode> input = MakeShared<TestNode>();
-    SharedPtr<TestNode> gain = MakeShared<TestNode>();
-    SharedPtr<TestNode> reverb = MakeShared<TestNode>();
-    SharedPtr<TestNode> output = MakeShared<TestNode>();
+    AudioGraph graph;
+    TestNode* input = graph.CreateNode<TestNode>();
+    TestNode* gain = graph.CreateNode<TestNode>();
+    TestNode* reverb = graph.CreateNode<TestNode>();
+    TestNode* output = graph.CreateNode<TestNode>();
 
-    AudioNodeConnectionResult error = input >> gain >> reverb >> output;
+    Error error = graph.ChainNodes(input, gain, reverb, output);
 }
 

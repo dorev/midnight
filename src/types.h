@@ -359,9 +359,9 @@ public:
     {
     }
 
-    void Insert(const T& value)
+    Bool Insert(const T& value)
     {
-        _Set.insert(value);
+        return _Set.insert(value).second;
     }
 
     Bool Contains(const T& value) const
@@ -716,6 +716,18 @@ UniquePtr<T> MakeUnique(Args&&... args)
 
 template <class T>
 using SharedPtr = std::shared_ptr<T>;
+
+template <class T, class U>
+SharedPtr<T> SharedPtrCast(SharedPtr<U>& sharedPtr)
+{
+    return std::static_pointer_cast<T>(sharedPtr);
+}
+
+template <class T, class U>
+const SharedPtr<T> SharedPtrCast(const SharedPtr<U>& sharedPtr)
+{
+    return std::static_pointer_cast<T>(sharedPtr);
+}
 
 template <class T, class... Args>
 EnableIf<!IsArray<T>, SharedPtr<T>> MakeShared(Args&&... args)
