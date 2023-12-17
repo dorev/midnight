@@ -7,7 +7,7 @@
 namespace Midnight
 {
     // This enum is the type used for any result or error code
-    enum Error : U32
+    enum class Result : U32
     {
         Ok = 0,
         Nullptr,
@@ -21,8 +21,35 @@ namespace Midnight
         UnexpectedState,
         EndOfFile,
         ExceedingLimits,
+        NotReady,
+        AlreadyWorking,
+        UnableToConnect,
         Unknown = U32MAX
     };
+
+    const Char* ResultToString(Result result)
+    {
+        switch(result)
+        {
+            case Result::Ok: return "Ok";
+            case Result::Nullptr: return "Nullptr";
+            case Result::InvalidPosition: return "Invalid Position";
+            case Result::UnsupportedFormat: return "Unsupported Format";
+            case Result::InvalidFile: return "Invalid File";
+            case Result::OutputDeviceDisconnected: return "Output Device Disconnected";
+            case Result::WrongParameterType: return "Wrong Parameter Type";
+            case Result::CannotFind: return "Cannot Find";
+            case Result::NotYetImplemented: return "Not Yet Implemented";
+            case Result::UnexpectedState: return "Unexpected State";
+            case Result::EndOfFile: return "End Of File";
+            case Result::ExceedingLimits: return "Exceeding Limits";
+            case Result::NotReady: return "Not Ready";
+            case Result::AlreadyWorking: return "Already Working";
+            case Result::UnableToConnect: return "Unable To Connect";
+            default:
+            case Result::Unknown: return "Unknown";
+        }
+    }
 
     using Decibel = F32;
 
@@ -40,13 +67,18 @@ namespace Midnight
         return std::pow(10.0f, decibel / 20.0f);
     }
 
-    enum class AudioFormat
+    DECLARE_FLAG_ENUM(AudioFormat, U32)
     {
-        NotSupported,
-        Int16,
-        Int32,
-        Float32
+        NotSpecified = 0,
+        FLAG(Int16, 0),
+        FLAG(Int32, 1),
+        FLAG(Float32, 2),
+
+        FLAG(Float32, 2),
+        FLAG(Float32, 2),
+        FLAG(Float32, 2),
     };
+
 
     // Encapsulates an audio data pointer and the information related
     // to its structure (channels, sample rate, etc.)
@@ -54,10 +86,19 @@ namespace Midnight
     {
     public:
         U8* _Data;
+        U32 _Size;
         U32 _Channels;
         U32 _SampleRate;
-        U32 _Size;
         AudioFormat _Format;
+
+        AudioSampleBuffer(U8* data = nullptr, U32 size = 0, U32 channels = 0, U32 sampleRate = 0, AudioFormat format = AudioFormat::NotSpecified)
+            : _Data(data)
+            , _Size(size)
+            , _Channels(channels)
+            , _SampleRate(sampleRate)
+            , _Format(format)
+        {
+        }
 
         ~AudioSampleBuffer()
         {
@@ -128,7 +169,7 @@ namespace Midnight
             _Channels = 0;
             _SampleRate = 0;
             _Size = 0;
-            _Format = AudioFormat::NotSupported;
+            std::memset(&_Format, 0, sizeof(AudioFormat));
         }
     };
 
@@ -153,6 +194,11 @@ namespace Midnight
             return _Name;
         }
 
+        const AudioSampleBuffer* GetBuffer() const
+        {
+            return _Buffer;
+        }
+
     private:
         String _Name;
         AudioSampleBuffer* _Buffer;
@@ -163,7 +209,6 @@ namespace Midnight
     {
         WaitingForDependencies,
         PendingProcessing,
-        Processing,
         ProcessingDone,
     };
 
@@ -171,10 +216,30 @@ namespace Midnight
     class AudioNode
     {
     public:
-
         AudioNodeState GetState() const
         {
             return _State;
+        }
+
+        const String& GetName() const
+        {
+            return _Name;
+        }
+
+    protected:
+        virtual Result Prepare()
+        {
+            if (_State == AudioNodeState::ProcessingDone)
+                _State = AudioNodeState::WaitingForDependencies;
+            return Result::Ok;
+        }
+
+        // Method to override for custom node processing
+        virtual Result ProcessCallback(const AudioAsset* asset, AudioSampleBuffer* input, AudioSampleBuffer* output)
+        {
+            output = input;
+            _State = AudioNodeState::ProcessingDone;
+            return Result::Ok;
         }
 
     private:
@@ -184,69 +249,83 @@ namespace Midnight
         {
         }
 
-        virtual Error Initialize()
+        Result Process()
         {
-            return Ok;
+            switch (_State)
+            {
+            case AudioNodeState::PendingProcessing:
+                break;
+            case AudioNodeState::ProcessingDone:
+                return Result::Ok;
+            case AudioNodeState::WaitingForDependencies:
+                for (AudioNode* inputNode : _InputNodes)
+                {
+                    if (inputNode != nullptr)
+                        inputNode->Process();
+                }
+                break;
+            }
+            Result result = ProcessCallback();
+            if (result != Result::Ok)
+                LOG_ERROR("Error while processing AudioNode %s: %s", GetName().CStr(), ResultToString(result));
+            _State = AudioNodeState::ProcessingDone;
+            return result;
         }
 
-        virtual Error Shutdown()
-        {
-            return Ok;
-        }
-
-        virtual Error Reset()
-        {
-            return Ok;
-        }
-
-        Error ConnectPrevious(AudioNode* node)
+        Result ConnectPrevious(AudioNode* node)
         {
             if (node == nullptr)
-                return Nullptr;
-            ScopedMutex lock(_Mutex);
-            _InputNodes.Insert(node);
-            return Ok;
+                return Result::Nullptr;
+            if (_InputNodes.Insert(node))
+                return Result::Ok;
+            else
+                return Result::UnableToConnect;
         }
 
-        Error ConnectNext(AudioNode* node)
+        Result ConnectOutput(AudioNode* node)
         {
-            if (node == nullptr)
-                return Nullptr;
-            ScopedMutex lock(_Mutex);
-            _OutputNodes.Insert(node);
-            return Ok;
+            if (node ==  nullptr)
+                return Result::Nullptr;
+            if (_OutputNodes.Insert(node))
+                return Result::Ok;
+            else
+                return Result::UnableToConnect;
         }
 
-        Error DisconnectNode(AudioNode* node)
+        Result DisconnectNode(AudioNode* node)
         {
-            if (node == nullptr)
-                return Nullptr;
-            ScopedMutex lock(_Mutex);
+            if (node ==  nullptr)
+                return Result::Nullptr;
             _InputNodes.Remove(node);
             _OutputNodes.Remove(node);
-            return Ok;
+            return Result::Ok;
         }
 
-        virtual Error Process()
+    private:
+        virtual Result Initialize()
         {
-            ScopedMutex lock(_Mutex);
-            if (_State != AudioNodeState::PendingProcessing)
-                return UnexpectedState;
-            for (AudioNode* node : _InputNodes)
-            {
-            }
-            for (AudioNode* node : _OutputNodes)
-            {
-            }
-            return Ok;
+            return Result::Ok;
         }
+
+        virtual Result Shutdown()
+        {
+            return Result::Ok;
+        }
+
+        virtual Result Reset()
+        {
+            return Result::Ok;
+        }
+
 
     protected:
-        Mutex _Mutex;
+        Atomic<AudioNodeState> _State;
         AudioSampleBuffer* _Buffer;
         Set<AudioNode*> _InputNodes;
         Set<AudioNode*> _OutputNodes;
-        Atomic<AudioNodeState> _State;
+
+    private:
+        String _Name;
     };
 
     // Supported node parameter types
@@ -278,32 +357,32 @@ namespace Midnight
         }
 
         template <class T>
-        Error SetValue(const T& value)
+        Result SetValue(const T& value)
         {
             if constexpr (GetParameterType<T>() == _Type)
             {
                 if (_HasLimits && (value > _Max || value < _Min))
-                    return ExceedingLimits;
+                    return Result::ExceedingLimits;
                 _Value = value;
-                return Ok;
+                return Result::Ok;
             }
             else
             {
-                return WrongParameterType;
+                return Result::WrongParameterType;
             }
         }
 
         template <class T>
-        Error GetValue(T& value) const
+        Result GetValue(T& value) const
         {
             if constexpr (GetParameterType<T>() == _Type)
             {
                 value = _Value.Get<T>();
-                return Ok;
+                return Result::Ok;
             }
             else
             {
-                return WrongParameterType;
+                return Result::WrongParameterType;
             }
         }
 
@@ -343,10 +422,39 @@ namespace Midnight
         };
     };
 
+    enum class AudioGraphState
+    {
+        Idle,
+        Processing
+    };
+
     // Class storing all the audio nodes of the engine
     class AudioGraph
     {
     public:
+        AudioGraph()
+            : _State(AudioGraphState::Idle)
+        {
+        }
+
+        AudioGraphState GetState() const
+        {
+            return _State;
+        }
+
+        Result Prepare()
+        {
+            if (_State == AudioGraphState::Idle)
+            {
+                for (AudioNode* node : _Nodes)
+                {
+                    if (node != nullptr)
+                        node->Prepare();
+                }
+            }
+            // TODO: Prime worker threads
+        }
+
         template <class T, class... Args>
         T* CreateNode(Args... args)
         {
@@ -360,83 +468,118 @@ namespace Midnight
                 else
                     delete node;
             }
-            return nullptr;
+            return Result::Nullptr;
         }
 
         template <class T>
-        Error RemoveNode(const T* node)
+        Result RemoveNode(const T* node)
         {
             static_assert(IsDerivedFrom<AudioNode, T>, "T must be derived from AudioNode");
 
             if (node == nullptr)
-                return Nullptr;
-            if (_Nodes.Remove(SharedPtrCast<AudioNode>(node)))
-                return Ok;
+                return Result::Nullptr;
+            if (_Nodes.Remove(static_cast<const AudioNode*>(node)))
+                return Result::Ok;
             else
                 return CannotFind;
         }
 
+        template <class T, class U>
+        Result Connect(T* leftNode, U* rightNode)
+        {
+            static_assert(IsDerivedFrom<AudioNode, T>, "Left node must be derived from AudioNode");
+            static_assert(IsDerivedFrom<AudioNode, U>, "Right node must be derived from AudioNode");
+
+            return leftNode->ConnectOutput(rightNode);
+        }
+
         template <class T, class... NodeTypes>
-        Error Connect(T* node, NodeTypes*... followingNodes)
+        Result Chain(T* node, NodeTypes*... followingNodes)
         {
             static_assert(IsDerivedFrom<AudioNode, T>, "T must be derived from AudioNode");
             static_assert((IsDerivedFrom<AudioNode, NodeTypes> && ...), "All types must be derived from AudioNode");
 
-            if (node == nullptr || ((followingNodes == nullptr) || ...))
-                return Nullptr;
-            return ConnectNodesImpl(node, followingNodes...);
+            if (node == Result::Nullptr || ((followingNodes == Result::Nullptr) || ...))
+                return Result::Nullptr;
+            return ChainNodesImpl(node, followingNodes...);
         }
 
     private:
         template <class T, class U, class... NodeTypes>
-        Error ConnectNodesImpl(T* leftNode, U* rightNode, NodeTypes*... followingNodes)
+        Result ChainNodesImpl(T* leftNode, U* rightNode, NodeTypes*... followingNodes)
         {
             if constexpr (sizeof...(followingNodes) == 0)
             {
-                return leftNode->ConnectNext(rightNode);
+                return Connect(leftNode, rightNode);
             }
             else
             {
-                Error error = leftNode->ConnectNext(rightNode);
-                if (error != Ok)
-                    return error;
-                return ConnectNodesImpl(rightNode, followingNodes...);
+                Result result = Connect(leftNode, rightNode);
+                if (result != Result::Ok)
+                    return result;
+                return ChainNodesImpl(rightNode, followingNodes...);
             }
         }
 
         template <class T>
-        Error ConnectNodesImpl(T* first)
+        Result ConnectNodesImpl(T* first)
         {
-            return Ok;
+            return Result::Ok;
         }
 
     private:
         Set<AudioNode*> _Nodes;
+        AudioGraphState _State;
     };
 
-    class AudioSource
+    class AudioSource : public AudioNode
     {
     public:
-        Error Play(F32 fadeIn = 0.0f);
-        Error Pause(F32 fadeOut = 0.05f);
-        Error Stop(F32 fadeOut = 0.05f);
-        Error Seek(U32 position);
-        U32 samplePosition;
+        Result Play(F32 fadeIn = 0.0f);
+        Result Pause(F32 fadeOut = 0.05f);
+        Result Stop(F32 fadeOut = 0.05f);
+        Result Seek(U32 position);
+        U32 framePosition;
         Bool loop;
 
     private:
+        virtual Result Process()
+        {
+            // TODO: feed asset to the next node
+            U8* data = _AudioAsset->GetBuffer()->_Data + (framePosition * sizeof(F32));
+            U32 size = _BufferTemplate._Size;
+            U32 channels = _BufferTemplate._Channels;
+            U32 sampleRate = _BufferTemplate._SampleRate;
+            AudioFormat format = _AudioAsset->GetBuffer()->_Format;
+            AudioSampleBuffer buffer(data, size, channels, sampleRate, format);
+
+            return Result::Ok;
+        }
+
+        virtual Result Prepare(const AudioSampleBuffer& bufferTemplate)
+        {
+            _BufferTemplate = bufferTemplate;
+            if (_State == AudioNodeState::ProcessingDone)
+                _State = AudioNodeState::PendingProcessing;
+            return Result::Ok;
+        }
+
+    private:
+        // State members
         U32 _Id;
         U32 _Priority;
         AudioAsset* _AudioAsset;
-        AudioNode* _InputNode;
+
+        // Working members
+        AudioSampleBuffer _BufferTemplate;
     };
 
     class IAudioService
     {
     public:
-        virtual Error Initialize() = 0;
-        virtual Error Shutdown() = 0;
-        virtual Error Reset() = 0;
+        virtual Result Initialize() = 0;
+        virtual Result Shutdown() = 0;
+        virtual Result Reset() = 0;
     };
 
     enum class AudioDeviceType
@@ -454,46 +597,46 @@ namespace Midnight
         AudioDeviceType deviceType;
     };
 
-    using AudioPlaybackCallback = void(*)(U8* destination, U32 channels, U32 frames, Error error);
+    using AudioPlaybackCallback = void(*)(U8* destination, U32 channels, U32 frames, Result error);
 
     class IAudioDeviceManager : public IAudioService
     {
     public:
-        virtual Error RegisterPlaybackCallback(AudioPlaybackCallback callback, void* userData) = 0;
-        virtual Error EnumerateDevices(U32& deviceCount, const AudioDeviceDescription*& devices) = 0;
-        virtual Error SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;
-        virtual Error Start() = 0;
-        virtual Error Stop() = 0;
+        virtual Result RegisterPlaybackCallback(AudioPlaybackCallback callback, void* userData) = 0;
+        virtual Result EnumerateDevices(U32& deviceCount, const AudioDeviceDescription*& devices) = 0;
+        virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;
+        virtual Result Start() = 0;
+        virtual Result Stop() = 0;
     };
 
     class IAudioFile
     {
     public:
-        virtual Error Seek(F32 seconds) = 0;
-        virtual Error Seek(U32 sample) = 0;
-        virtual Error GetSamplePosition(U32& sample) = 0;
-        virtual Error GetTimePosition(F32& seconds) = 0;
-        virtual Error Read(U32 frameCountRequested, AudioSampleBuffer*& buffer);
+        virtual Result Seek(F32 seconds) = 0;
+        virtual Result Seek(U32 sample) = 0;
+        virtual Result GetSamplePosition(U32& sample) = 0;
+        virtual Result GetTimePosition(F32& seconds) = 0;
+        virtual Result Read(U32 frameCountRequested, AudioSampleBuffer*& buffer);
     };
 
     class IAudioDecoder : public IAudioService
     {
     public:
-        virtual Error CreateSampleBuffer(const String& filePath, AudioSampleBuffer*& destination) = 0;
-        virtual Error OpenFile(const String& filePath, IAudioFile*& audioFile);
+        virtual Result CreateSampleBuffer(const String& filePath, AudioSampleBuffer*& destination) = 0;
+        virtual Result OpenFile(const String& filePath, IAudioFile*& audioFile);
 
     };
 
     class IAudioResampler : public IAudioService
     {
     public:
-        virtual Error Resample(const AudioSampleBuffer* source, AudioSampleBuffer*& destination) = 0;
+        virtual Result Resample(const AudioSampleBuffer* source, AudioSampleBuffer*& destination) = 0;
     };
 
     class IAudioChannelRemapper : public IAudioService
     {
     public:
-        virtual Error Remap(const AudioSampleBuffer* source, AudioSampleBuffer*& destination) = 0;
+        virtual Result Remap(const AudioSampleBuffer* source, AudioSampleBuffer*& destination) = 0;
     };
 
     struct AudioManagerServices
@@ -513,12 +656,12 @@ namespace Midnight
     class AudioManager
     {
     public:
-        Error Initialize(const AudioManagerServices& services, const AudioManagerConfig& config);
-        Error Shutdown();
+        Result Initialize(const AudioManagerServices& services, const AudioManagerConfig& config);
+        Result Shutdown();
         AudioAsset* LoadAudioAsset(const String& filePath);
-        Error UnloadAudioAsset(const AudioAsset* audioAsset);
+        Result UnloadAudioAsset(const AudioAsset* audioAsset);
         AudioSource* CreateAudioSource(const AudioAsset* audioAsset, const AudioNode* inputNode);
-        Error DestroyAudioSource(const AudioSource* audioSource);
+        Result DestroyAudioSource(const AudioSource* audioSource);
 
     private:
         AudioManagerServices _Services;

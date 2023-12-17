@@ -19,6 +19,6 @@ TEST_F(CompilationTests, AudioGraph)
     TestNode* reverb = graph.CreateNode<TestNode>();
     TestNode* output = graph.CreateNode<TestNode>();
 
-    Error error = graph.Connect(input, gain, reverb, output);
+    Result error = graph.Chain(input, gain, reverb, output);
 }
 

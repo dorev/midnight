@@ -127,6 +127,11 @@ public:
         return _String[index];
     }
 
+    const Char* CStr() const
+    {
+        return _String.c_str();
+    }
+
     void Clear()
     {
         _String.clear();
@@ -1149,5 +1154,31 @@ struct Transform
         return !(*this == other);
     }
 };
+
+#define LOG(format, ...) printf(format, ##__VA_ARGS__);
+#define LOG_WARNING(format, ...) printf("[WARNING] " format, ##__VA_ARGS__);
+#define LOG_ERROR(format, ...) printf("[ERROR] " format " [%s l.%d]\n", ##__VA_ARGS__, __FILE__, __LINE__);
+
+#define FLAG(name, shift) name = 1 << shift
+
+#define DECLARE_FLAG_ENUM(EnumName, UnderlyingType) \
+    enum class EnumName : UnderlyingType; \
+    constexpr EnumName operator|(EnumName a, EnumName b) \
+    { \
+        return static_cast<EnumName>(static_cast<UnderlyingType>(a) | static_cast<UnderlyingType>(b)); \
+    } \
+    constexpr EnumName operator&(EnumName a, EnumName b) \
+    { \
+        return static_cast<EnumName>(static_cast<UnderlyingType>(a) & static_cast<UnderlyingType>(b)); \
+    } \
+    inline EnumName& operator|=(EnumName& a, EnumName b) \
+    { \
+        return a = a | b; \
+    } \
+    inline EnumName& operator&=(EnumName& a, EnumName b) \
+    { \
+        return a = a & b; \
+    } \
+    enum class EnumName : UnderlyingType
 
 } // namespace Midnight
