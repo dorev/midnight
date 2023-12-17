@@ -22,8 +22,9 @@ namespace Midnight
         EndOfFile,
         ExceedingLimits,
         NotReady,
-        AlreadyWorking,
+        AlreadyProcessing,
         UnableToConnect,
+        UnableToAddNode,
         Unknown = U32MAX
     };
 
@@ -44,7 +45,7 @@ namespace Midnight
             case Result::EndOfFile: return "End Of File";
             case Result::ExceedingLimits: return "Exceeding Limits";
             case Result::NotReady: return "Not Ready";
-            case Result::AlreadyWorking: return "Already Working";
+            case Result::AlreadyProcessing: return "Already Working";
             case Result::UnableToConnect: return "Unable To Connect";
             default:
             case Result::Unknown: return "Unknown";
@@ -71,12 +72,13 @@ namespace Midnight
     {
         NotSpecified = 0,
         FLAG(Int16, 0),
-        FLAG(Int32, 1),
-        FLAG(Float32, 2),
+        FLAG(Int24, 1),
+        FLAG(Int32, 2),
+        FLAG(Float32, 3),
 
-        FLAG(Float32, 2),
-        FLAG(Float32, 2),
-        FLAG(Float32, 2),
+        FLAG(DirectSpeakers, 8),
+        FLAG(AudioObject, 9),
+        FLAG(Ambisonic, 10),
     };
 
 
@@ -169,7 +171,7 @@ namespace Midnight
             _Channels = 0;
             _SampleRate = 0;
             _Size = 0;
-            std::memset(&_Format, 0, sizeof(AudioFormat));
+            _Format = AudioFormat::NotSpecified;
         }
     };
 
@@ -179,19 +181,26 @@ namespace Midnight
     class AudioAsset
     {
     public:
-        Decibel dB;
-
-    public:
         AudioAsset(const String& name, AudioSampleBuffer* buffer)
             : _Name(name)
             , _Buffer(buffer)
-            , dB(0.f)
+            , _dB(0.f)
         {
         }
 
         const String& GetName() const
         {
             return _Name;
+        }
+
+        Decibel GetVolume() const
+        {
+            return _dB;
+        }
+
+        void SetVolume(Decibel volume)
+        {
+            _dB = volume;
         }
 
         const AudioSampleBuffer* GetBuffer() const
@@ -201,6 +210,7 @@ namespace Midnight
 
     private:
         String _Name;
+        Decibel _dB;
         AudioSampleBuffer* _Buffer;
     };
 
@@ -227,20 +237,16 @@ namespace Midnight
         }
 
     protected:
+        //
+        // Methods to override for custom node processing
+        //
+
         virtual Result Prepare()
         {
-            if (_State == AudioNodeState::ProcessingDone)
-                _State = AudioNodeState::WaitingForDependencies;
             return Result::Ok;
         }
 
-        // Method to override for custom node processing
-        virtual Result ProcessCallback(const AudioAsset* asset, AudioSampleBuffer* input, AudioSampleBuffer* output)
-        {
-            output = input;
-            _State = AudioNodeState::ProcessingDone;
-            return Result::Ok;
-        }
+        virtual Result Process(const AudioAsset* asset, AudioSampleBuffer* input, AudioSampleBuffer* output) = 0;
 
     private:
         // Nodes can only be constructed by AudioGraph
@@ -249,27 +255,11 @@ namespace Midnight
         {
         }
 
-        Result Process()
+        Result Prepare(Passkey<AudioGraph>)
         {
-            switch (_State)
-            {
-            case AudioNodeState::PendingProcessing:
-                break;
-            case AudioNodeState::ProcessingDone:
-                return Result::Ok;
-            case AudioNodeState::WaitingForDependencies:
-                for (AudioNode* inputNode : _InputNodes)
-                {
-                    if (inputNode != nullptr)
-                        inputNode->Process();
-                }
-                break;
-            }
-            Result result = ProcessCallback();
-            if (result != Result::Ok)
-                LOG_ERROR("Error while processing AudioNode %s: %s", GetName().CStr(), ResultToString(result));
-            _State = AudioNodeState::ProcessingDone;
-            return result;
+            AudioNodeState processingDoneState = AudioNodeState::ProcessingDone;
+            CompareExchange(_State, processingDoneState, AudioNodeState::WaitingForDependencies);
+            return Prepare();
         }
 
         Result ConnectPrevious(AudioNode* node)
@@ -316,7 +306,6 @@ namespace Midnight
         {
             return Result::Ok;
         }
-
 
     protected:
         Atomic<AudioNodeState> _State;
@@ -442,17 +431,22 @@ namespace Midnight
             return _State;
         }
 
-        Result Prepare()
+        Result Process(AudioSampleBuffer outputBuffer)
         {
-            if (_State == AudioGraphState::Idle)
-            {
-                for (AudioNode* node : _Nodes)
-                {
-                    if (node != nullptr)
-                        node->Prepare();
-                }
-            }
-            // TODO: Prime worker threads
+            AudioGraphState idleState = AudioGraphState::Idle;
+            if (!CompareExchange(_State, idleState, AudioGraphState::Processing))
+                return Result::AlreadyProcessing;
+            Result result = Result::Ok;
+            result = UpdateNodes();
+            if (result != Result::Ok)
+                return result;
+            result = ValidateGraph(); // NotImplementedYet
+            //if (result != Result::Ok)
+            //    return result;
+            for (AudioNode* node : _Nodes)
+                node->Prepare(_Passkey);
+
+            
         }
 
         template <class T, class... Args>
@@ -463,25 +457,34 @@ namespace Midnight
             T* node = new T(std::forward<Args>(args)...);
             if (node != nullptr)
             {
-                if (_Nodes.Insert(static_cast<AudioNode*>(node)))
-                    return node;
+                ScopedMutex lock(_NodesMutex);
+                if (_NodesToAdd.Insert(static_cast<AudioNode*>(node)))
+                {
+                    LOG("Added node %s to AudioGraph.", node->GetName().CStr());
+                }
                 else
+                {
+                    LOG_WARNING("Unable to add node %s to AudioGraph. Destroying and deallocating node.", node->GetName().CStr());
+                    node.~T();
                     delete node;
+                    node = nullptr;
+                }
             }
-            return Result::Nullptr;
+            return node;
         }
 
         template <class T>
-        Result RemoveNode(const T* node)
+        Result RemoveNode(T* node)
         {
             static_assert(IsDerivedFrom<AudioNode, T>, "T must be derived from AudioNode");
 
+            ScopedMutex lock(_NodesMutex);
             if (node == nullptr)
                 return Result::Nullptr;
-            if (_Nodes.Remove(static_cast<const AudioNode*>(node)))
+            if (_NodesToRemove.Insert(static_cast<AudioNode*>(node)))
                 return Result::Ok;
             else
-                return CannotFind;
+                return Result::CannotFind;
         }
 
         template <class T, class U>
@@ -527,9 +530,33 @@ namespace Midnight
             return Result::Ok;
         }
 
+        Result UpdateNodes()
+        {
+            ScopedMutex lock(_NodesMutex);
+            for (AudioNode* node : _NodesToRemove)
+                _Nodes.Remove(node);
+            _NodesToRemove.Clear();
+            for (AudioNode* node : _NodesToAdd)
+                _Nodes.Insert(node);
+            _NodesToAdd.Clear();
+        }
+
+        Result ValidateGraph() const
+        {
+            // Make sure that all path reach the output
+            // Make sure that there are no feedback loops
+            return Result::NotYetImplemented;
+        }
+
     private:
+        Mutex _NodesMutex;
         Set<AudioNode*> _Nodes;
-        AudioGraphState _State;
+        Set<AudioNode*> _NodesToAdd;
+        Set<AudioNode*> _NodesToRemove;
+        AudioNode* _OutputNode;
+        Atomic<AudioGraphState> _State;
+
+        static Passkey<AudioGraph> _Passkey;
     };
 
     class AudioSource : public AudioNode
@@ -543,35 +570,22 @@ namespace Midnight
         Bool loop;
 
     private:
-        virtual Result Process()
+        virtual Result Process(AudioAsset* audioAsset, AudioSampleBuffer* input, AudioSampleBuffer* output)
         {
-            // TODO: feed asset to the next node
-            U8* data = _AudioAsset->GetBuffer()->_Data + (framePosition * sizeof(F32));
-            U32 size = _BufferTemplate._Size;
-            U32 channels = _BufferTemplate._Channels;
-            U32 sampleRate = _BufferTemplate._SampleRate;
-            AudioFormat format = _AudioAsset->GetBuffer()->_Format;
-            AudioSampleBuffer buffer(data, size, channels, sampleRate, format);
-
             return Result::Ok;
         }
 
-        virtual Result Prepare(const AudioSampleBuffer& bufferTemplate)
+        virtual Result Prepare()
         {
-            _BufferTemplate = bufferTemplate;
-            if (_State == AudioNodeState::ProcessingDone)
-                _State = AudioNodeState::PendingProcessing;
+            AudioNodeState processingDoneState = AudioNodeState::ProcessingDone;
+            CompareExchange(_State, processingDoneState, AudioNodeState::PendingProcessing);
             return Result::Ok;
         }
 
     private:
-        // State members
         U32 _Id;
         U32 _Priority;
         AudioAsset* _AudioAsset;
-
-        // Working members
-        AudioSampleBuffer _BufferTemplate;
     };
 
     class IAudioService
@@ -613,8 +627,8 @@ namespace Midnight
     {
     public:
         virtual Result Seek(F32 seconds) = 0;
-        virtual Result Seek(U32 sample) = 0;
-        virtual Result GetSamplePosition(U32& sample) = 0;
+        virtual Result Seek(U32 frame) = 0;
+        virtual Result GetFramePosition(U32& frame) = 0;
         virtual Result GetTimePosition(F32& seconds) = 0;
         virtual Result Read(U32 frameCountRequested, AudioSampleBuffer*& buffer);
     };

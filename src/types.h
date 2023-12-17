@@ -18,41 +18,6 @@ namespace Midnight
 {
 
 ///////////////////////////////////////////////////////////////////////////////
-// Utilities
-///////////////////////////////////////////////////////////////////////////////
-
-struct Empty
-{
-};
-
-template <class T, class U>
-constexpr bool IsSame = std::is_same<T, U>::value;
-
-template <class T>
-constexpr bool IsPointer = std::is_pointer<T>::value;
-
-template <class T>
-constexpr bool IsFloatingPoint = std::is_floating_point<T>::value;
-
-template <class T>
-constexpr bool IsIntegral = std::is_integral<T>::value>;
-
-template <class T>
-constexpr bool IsArray = std::is_array<T>::value;
-
-template <class T>
-using Decay = typename std::decay<T>::type;
-
-template <class T>
-using RemoveExtent = typename std::remove_extent<T>::type;
-
-template <bool B, class T = void>
-using EnableIf = typename std::enable_if<B, T>::type;
-
-template <class Base, class Derived>
-constexpr bool IsDerivedFrom = std::is_base_of<Base, Derived>::value;
-
-///////////////////////////////////////////////////////////////////////////////
 // Primitive type aliases
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -85,6 +50,37 @@ constexpr F32 F32MAX = FLT_MAX;
 constexpr F32 F32MIN = FLT_MIN;
 constexpr F64 F64MAX = DBL_MAX;
 constexpr F64 F64MIN = DBL_MIN;
+
+///////////////////////////////////////////////////////////////////////////////
+// Traits
+///////////////////////////////////////////////////////////////////////////////
+
+template <class T, class U>
+constexpr bool IsSame = std::is_same<T, U>::value;
+
+template <class T>
+constexpr bool IsPointer = std::is_pointer<T>::value;
+
+template <class T>
+constexpr bool IsFloatingPoint = std::is_floating_point<T>::value;
+
+template <class T>
+constexpr bool IsIntegral = std::is_integral<T>::value>;
+
+template <class T>
+constexpr bool IsArray = std::is_array<T>::value;
+
+template <class T>
+using Decay = typename std::decay<T>::type;
+
+template <class T>
+using RemoveExtent = typename std::remove_extent<T>::type;
+
+template <bool B, class T = void>
+using EnableIf = typename std::enable_if<B, T>::type;
+
+template <class Base, class Derived>
+constexpr bool IsDerivedFrom = std::is_base_of<Base, Derived>::value;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Containers
@@ -194,7 +190,6 @@ public:
             [](unsigned char c){ return std::tolower(c); });
     }
 };
-
 
 //
 // Vector
@@ -390,6 +385,11 @@ public:
     Bool Remove(const T& value)
     {
         return _Set.erase(value) > 0;
+    }
+
+    void Clear()
+    {
+        _Set.clear();
     }
 
     Bool operator==(const Set& other) const
@@ -1155,11 +1155,32 @@ struct Transform
     }
 };
 
-#define LOG(format, ...) printf(format, ##__VA_ARGS__);
-#define LOG_WARNING(format, ...) printf("[WARNING] " format, ##__VA_ARGS__);
+///////////////////////////////////////////////////////////////////////////////
+// Logging
+///////////////////////////////////////////////////////////////////////////////
+
+#define LOG(format, ...) printf(format "\n", ##__VA_ARGS__);
+#define LOG_WARNING(format, ...) printf("[WARNING] " format "\n", ##__VA_ARGS__);
 #define LOG_ERROR(format, ...) printf("[ERROR] " format " [%s l.%d]\n", ##__VA_ARGS__, __FILE__, __LINE__);
 
-#define FLAG(name, shift) name = 1 << shift
+#if defined(_MSC_VER)
+    #define DEBUG_BREAK() __debugbreak()
+#elif defined(__GNUC__) || defined(__clang__)
+    #define DEBUG_BREAK() __builtin_trap()
+#else
+    #define DEBUG_BREAK() assert(false)
+#endif
+
+#define DEBUG_ASSERT(condition, format, ...) \
+    if (!(condition)) \
+    { \
+        LOG("[ASSERT] " format "\n", ##__VA_ARGS__); \
+        DEBUG_BREAK(); \
+    }
+
+///////////////////////////////////////////////////////////////////////////////
+// Utilities
+///////////////////////////////////////////////////////////////////////////////
 
 #define DECLARE_FLAG_ENUM(EnumName, UnderlyingType) \
     enum class EnumName : UnderlyingType; \
@@ -1180,5 +1201,22 @@ struct Transform
         return a = a & b; \
     } \
     enum class EnumName : UnderlyingType
+
+#define FLAG(name, shift) name = 1 << shift
+
+    void ZeroizeMemory(void* pointer, U64 size)
+    {
+        std::memset(pointer, 0, size);
+    }
+
+    template <typename T>
+    class Passkey
+    {
+    private:
+        friend T;
+        Passkey() {}
+        Passkey(const Passkey&) {}
+        Passkey& operator=(const Passkey&) = delete;
+    };
 
 } // namespace Midnight
