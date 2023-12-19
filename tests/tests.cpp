@@ -9,6 +9,15 @@ class CompilationTests : public ::testing::Test
 
 class TestNode : public AudioNode
 {
+public:
+    TestNode()
+    {
+    }
+
+    Result Execute(AudioBuffer& destinationBuffer)
+    {
+        return Result::Ok;
+    }
 };
 
 TEST_F(CompilationTests, AudioGraph)

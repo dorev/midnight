@@ -111,6 +111,7 @@ namespace Midnight
         FLAG(Ambisonic, 10),
     };
 
+    class AudioBuffer;
     class IAudioBufferProvider : public IAudioService
     {
     public:
@@ -146,7 +147,7 @@ namespace Midnight
     class AudioBuffer
     {
     public:
-        AudioBuffer(IAudioBufferProvider& pool, U8* data, U32 capacity)
+        AudioBuffer(IAudioBufferProvider* pool = nullptr, U8* data = nullptr, U32 capacity = 0)
             : _Pool(pool)
             , _Data(data)
             , _Size(0)
@@ -205,7 +206,7 @@ namespace Midnight
         {
             if (_RefCount != nullptr && _RefCount->fetch_sub(1) == 1)
             {
-                _Pool.ReleaseBuffer(*this);
+                _Pool->ReleaseBuffer(*this);
                 delete _RefCount;
                 _RefCount = nullptr;
                 _Data = nullptr;
@@ -222,7 +223,7 @@ namespace Midnight
         AudioFormat _Format;
 
         Atomic<U32>* _RefCount;
-        IAudioBufferProvider& _Pool;
+        IAudioBufferProvider* _Pool;
     };
 
     template <U32 BlockSize = 32>
@@ -553,6 +554,8 @@ namespace Midnight
         Busy
     };
 
+    class IAudioGraph;
+    class AudioNode;
     using AudioGraphTask = Result(*)(IAudioGraph&);
 
     class IAudioGraph : public IAudioService
@@ -800,7 +803,7 @@ namespace Midnight
         }
 
         // Method to override for custom node processing
-        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer& buffer) = 0;
+        virtual Result Execute(AudioBuffer& destinationBuffer) = 0;
 
         virtual Result Prepare()
         {
@@ -983,13 +986,12 @@ namespace Midnight
             return Result::Ok;
         }
 
-
         Result Execute(AudioGraphTask task) override
         {
             return Result::Ok;
         }
 
-        Result SetupOutputNode(AudioOutput* outputNode)
+        Result SetupOutputNode(AudioNode* outputNode)
         {
             return Result::NotYetImplemented;
         }
@@ -1008,7 +1010,7 @@ namespace Midnight
                 return result;
             for (AudioNode* node : _Nodes)
                 node->Prepare();
-            return _OutputNode->Execute(nullptr, outputBuffer);
+            return _OutputNode->Execute(outputBuffer);
         }
 
         template <class T, class... Args>
@@ -1027,7 +1029,7 @@ namespace Midnight
                 else
                 {
                     LOG_WARNING("Unable to add node %s to AudioGraph. Destroying and deallocating node.", node->GetName().CStr());
-                    node.~T();
+                    node->~T();
                     delete node;
                     node = nullptr;
                 }
@@ -1064,7 +1066,7 @@ namespace Midnight
             static_assert(IsDerivedFrom<AudioNode, T>, "T must be derived from AudioNode");
             static_assert((IsDerivedFrom<AudioNode, NodeTypes> && ...), "All types must be derived from AudioNode");
 
-            if (node == Result::Nullptr || ((followingNodes == Result::Nullptr) || ...))
+            if (node == nullptr || ((followingNodes == nullptr) || ...))
                 return Result::Nullptr;
             return ChainNodesImpl(node, followingNodes...);
         }
@@ -1101,6 +1103,7 @@ namespace Midnight
             for (AudioNode* node : _NodesToAdd)
                 _Nodes.Insert(node);
             _NodesToAdd.Clear();
+            return Result::Ok;
         }
 
         Result ValidateGraph() const
