@@ -34,6 +34,7 @@ using S32 = int32_t;
 using S64 = int64_t;
 using F32 = float;
 using F64 = double;
+using Pointer = uintptr_t;
 constexpr U8 U8MAX = UINT8_MAX;
 constexpr U16 U16MAX = UINT16_MAX;
 constexpr U32 U32MAX = UINT32_MAX;
@@ -224,6 +225,23 @@ public:
     void PushBack(const T& item)
     {
         _Vector.push_back(item);
+    }
+
+    template <class... Args>
+    void EmplaceBack(Args... args)
+    {
+        _Vector.emplace_back(std::forward<Args>(args)...);
+    }
+
+
+    T& Back()
+    {
+        _Vector.back();
+    }
+
+    const T& Back() const
+    {
+        _Vector.back();
     }
 
     void Clear()

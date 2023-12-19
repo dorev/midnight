@@ -25,6 +25,9 @@ namespace Midnight
         AlreadyProcessing,
         UnableToConnect,
         UnableToAddNode,
+        MissingOutputNode,
+        OutOfRange,
+        FailedAllocation,
         Unknown = U32MAX
     };
 
@@ -47,11 +50,271 @@ namespace Midnight
             case Result::NotReady: return "Not Ready";
             case Result::AlreadyProcessing: return "Already Working";
             case Result::UnableToConnect: return "Unable To Connect";
-            default:
             case Result::Unknown: return "Unknown";
+            default:
+                return "No ResultToString conversion available";
         }
     }
 
+    //
+    // Interfaces
+    //
+    class IAudioSystem
+    {
+    public:
+        virtual IAudioGraph& GetGraph() = 0;
+        virtual IAudioDecoder& GetDecoder() = 0;
+        virtual IAudioDeviceManager& GetDeviceManager() = 0;
+        virtual IAudioResampler& GetResampler() = 0;
+        virtual IAudioChannelRemapper& GetChannelRemapper() = 0;
+    };
+
+    class IAudioService
+    {
+    public:
+        virtual Result Initialize() = 0;
+        virtual Result Shutdown() = 0;
+        virtual Result Reset() = 0;
+    };
+
+    //
+    // AudioBuffer and memory management
+    //
+
+    DECLARE_FLAG_ENUM(AudioFormat, U32)
+    {
+        NotSpecified = 0,
+        FLAG(Int16, 0),
+        FLAG(Int24, 1),
+        FLAG(Int32, 2),
+        FLAG(Float32, 3),
+
+        FLAG(DirectSpeakers, 8),
+        FLAG(AudioObject, 9),
+        FLAG(Ambisonic, 10),
+    };
+
+    // Encapsulates an audio data pointer and the information related
+    // to its structure (channels, sample rate, etc.)
+    class AudioBuffer
+    {
+    public:
+        AudioBuffer(U8* data, U32 size)
+            : _Data(data)
+            , _Size(size)
+        {
+        }
+
+    private:
+        U8* _Data;
+        U32 _Size;
+
+        U32 _Channels;
+        U32 _SampleRate;
+        AudioFormat _Format;
+
+        Atomic<U32>* _RefCount;
+        AudioBufferPool* _Pool;
+    };
+
+    class AudioBufferPool
+    {
+        static constexpr U32 BlockSize = 32;
+        static constexpr U32 TailIndex = U32MAX;
+
+    private:
+        class Block
+        {
+        public:
+            U32 buffers[BlockSize];
+
+            Block(U32 bufferSize)
+                : _Data(new U8[bufferSize * BlockSize])
+                , _BufferSize(bufferSize)
+            {
+                if (_Data == nullptr)
+                    LOG_ERROR("Failed to allocate buffer block!");
+            }
+
+            Block(const Block&) = delete;
+            Block& operator=(const Block&) = delete;
+
+            ~Block()
+            {
+                if (_Data != nullptr)
+                    delete[] _Data;
+            }
+
+            U8* GetBufferPointer(U32 index)
+            {
+                if (_Data != nullptr)
+                    return &_Data[_BufferSize * index];
+                else
+                    return nullptr;
+            }
+
+        private:
+            U8* _Data;
+            U32 _BufferSize;
+        };
+
+    public:
+        AudioBufferPool(U32 bufferSize)
+            : _BufferSize(bufferSize)
+            , _Head(0)
+        {
+            InitializeNewBlock();
+        }
+
+        Result GetBuffer(AudioBuffer& buffer)
+        {
+            U32 currentIndex;
+            do
+            {
+                currentIndex = _Head;
+                if (currentIndex == TailIndex)
+                    ExpandPool(currentIndex);
+            }
+            while (!CompareExchange(_Head, currentIndex, _NextBufferIndex[currentIndex]));
+
+            U32 blockIndex = currentIndex / BlockSize;
+            U32 bufferIndex = currentIndex % BlockSize;
+            buffer = AudioBuffer(_Blocks[blockIndex]->GetBufferPointer(bufferIndex), _BufferSize);
+            return Result::Ok;
+        }
+
+    private:
+        void ExpandPool(U32& currentIndex)
+        {
+            ScopedMutex lock(_ExpansionMutex);
+            if (_Head == TailIndex)
+            {
+                U32 tailIndexFix = _Blocks.Size() * BlockSize;
+                _NextBufferIndex[_NextBufferIndex.Size() - 1] = tailIndexFix;
+                _Head = tailIndexFix;
+                currentIndex = tailIndexFix;
+
+                InitializeNewBlock();
+            }
+        }
+
+        Block* InitializeNewBlock()
+        {
+            Block* block = new Block(_BufferSize);
+            _Blocks.EmplaceBack(block);
+
+            U32 baseIndex = BlockSize * (_Blocks.Size() - 1);
+
+            for (U32 i = 0; i < BlockSize; ++i)
+                _NextBufferIndex.PushBack(baseIndex + i + 1);
+
+            _NextBufferIndex[_NextBufferIndex.Size() - 1] = TailIndex;
+
+            return block;
+        }
+
+    private:
+        Mutex _ExpansionMutex;
+        U32 _BufferSize;
+        Atomic<U32> _Head;
+        Vector<UniquePtr<Block>> _Blocks;
+        Vector<U32> _NextBufferIndex;
+    };
+
+
+
+
+    //
+    // Device management
+    //
+    enum class AudioDeviceType
+    {
+        Playback,
+        Recording
+    };
+
+    struct AudioDeviceDescription
+    {
+        String name;
+        U32 channels;
+        U32 sampleRate;
+        Bool defaultDevice;
+        AudioDeviceType deviceType;
+    };
+
+    using AudioPlaybackCallback = void(*)(U8* destination, U32 channels, U32 frames, Result error);
+
+    class IAudioDeviceManager : public IAudioService
+    {
+    public:
+        virtual Result RegisterPlaybackCallback(AudioPlaybackCallback callback, void* userData) = 0;
+        virtual Result EnumerateDevices(U32& deviceCount, const AudioDeviceDescription*& devices) = 0;
+        virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;
+        virtual Result Start() = 0;
+        virtual Result Stop() = 0;
+    };
+
+    //
+    // File decoding
+    //
+    class IAudioFile
+    {
+    public:
+        virtual Result Seek(F32 seconds) = 0;
+        virtual Result Seek(U32 frame) = 0;
+        virtual Result GetFramePosition(U32& frame) = 0;
+        virtual Result GetTimePosition(F32& seconds) = 0;
+        virtual Result Read(U32 frameCountRequested, AudioBuffer*& buffer);
+    };
+
+    class IAudioDecoder : public IAudioService
+    {
+    public:
+        virtual Result CreateSampleBuffer(const String& filePath, AudioBuffer*& destination) = 0;
+        virtual Result OpenFile(const String& filePath, IAudioFile*& audioFile);
+
+    };
+
+    //
+    // Resampling
+    //
+    class IAudioResampler : public IAudioService
+    {
+    public:
+        virtual Result Resample(const AudioBuffer* source, AudioBuffer*& destination) = 0;
+    };
+
+    //
+    // Channel remapping
+    //
+    class IAudioChannelRemapper : public IAudioService
+    {
+    public:
+        virtual Result Remap(const AudioBuffer* source, AudioBuffer*& destination) = 0;
+    };
+
+    //
+    // Audio graph
+    //
+    enum class AudioGraphState
+    {
+        Idle,
+        Busy
+    };
+
+    using AudioGraphTask = Result(*)(IAudioGraph&);
+
+    class IAudioGraph
+    {
+    public:
+        virtual Result Execute(AudioGraphTask worker) = 0;
+        virtual Result GetNodes(Set<AudioNode*>& nodes) = 0;
+        virtual AudioGraphState GetState() const = 0;
+    };
+
+    //
+    // Audio specific helpers
+    //
     using Decibel = F32;
 
     Decibel LinearToDecibel(F32 linearVolume)
@@ -68,120 +331,13 @@ namespace Midnight
         return std::pow(10.0f, decibel / 20.0f);
     }
 
-    DECLARE_FLAG_ENUM(AudioFormat, U32)
-    {
-        NotSpecified = 0,
-        FLAG(Int16, 0),
-        FLAG(Int24, 1),
-        FLAG(Int32, 2),
-        FLAG(Float32, 3),
-
-        FLAG(DirectSpeakers, 8),
-        FLAG(AudioObject, 9),
-        FLAG(Ambisonic, 10),
-    };
-
-
-    // Encapsulates an audio data pointer and the information related
-    // to its structure (channels, sample rate, etc.)
-    class AudioSampleBuffer
-    {
-    public:
-        U8* _Data;
-        U32 _Size;
-        U32 _Channels;
-        U32 _SampleRate;
-        AudioFormat _Format;
-
-        AudioSampleBuffer(U8* data = nullptr, U32 size = 0, U32 channels = 0, U32 sampleRate = 0, AudioFormat format = AudioFormat::NotSpecified)
-            : _Data(data)
-            , _Size(size)
-            , _Channels(channels)
-            , _SampleRate(sampleRate)
-            , _Format(format)
-        {
-        }
-
-        ~AudioSampleBuffer()
-        {
-            // Data is not freed when this class is destructed
-            // TODO: Log a warning?
-        }
-
-        AudioSampleBuffer(const AudioSampleBuffer& other)
-        {
-            _Data = other._Data;
-            _Channels = other._Channels;
-            _SampleRate = other._SampleRate;
-            _Size = other._Size;
-            _Format = other._Format;
-        }
-
-        AudioSampleBuffer& operator=(const AudioSampleBuffer& other)
-        {
-            if (this != &other)
-            {
-                _Data = other._Data;
-                _Channels = other._Channels;
-                _SampleRate = other._SampleRate;
-                _Size = other._Size;
-                _Format = other._Format;
-            }
-            return *this;
-        }
-
-        AudioSampleBuffer(AudioSampleBuffer&& other) noexcept
-            : _Data(other._Data)
-            , _Channels(other._Channels)
-            , _SampleRate(other._SampleRate)
-            , _Size(other._Size)
-            , _Format(other._Format)
-        {
-            other._Data = nullptr;
-            other._Channels = 0;
-            other._SampleRate = 0;
-            other._Size = 0;
-            _Format = other._Format;
-        }
-
-        AudioSampleBuffer& operator=(AudioSampleBuffer&& other) noexcept
-        {
-            if (this != &other)
-            {
-                _Data = other._Data;
-                _Channels = other._Channels;
-                _SampleRate = other._SampleRate;
-                _Size = other._Size;
-                _Format = other._Format;
-                other.Clear();
-            }
-            return *this;
-        }
-
-        void Free()
-        {
-            if (_Data != nullptr)
-                delete[] _Data;
-            Clear();
-        }
-
-        void Clear()
-        {
-            _Data = nullptr;
-            _Channels = 0;
-            _SampleRate = 0;
-            _Size = 0;
-            _Format = AudioFormat::NotSpecified;
-        }
-    };
-
     // An AudioAsset refers to the original sound. It contains its data, and
     // could eventually also host metadata and 'global' parameters affecting
     // any process refering to that sound
     class AudioAsset
     {
     public:
-        AudioAsset(const String& name, AudioSampleBuffer* buffer)
+        AudioAsset(const String& name, AudioBuffer* buffer)
             : _Name(name)
             , _Buffer(buffer)
             , _dB(0.f)
@@ -203,7 +359,7 @@ namespace Midnight
             _dB = volume;
         }
 
-        const AudioSampleBuffer* GetBuffer() const
+        const AudioBuffer* GetBuffer() const
         {
             return _Buffer;
         }
@@ -211,15 +367,16 @@ namespace Midnight
     private:
         String _Name;
         Decibel _dB;
-        AudioSampleBuffer* _Buffer;
+        AudioBuffer* _Buffer;
     };
 
     // Possible states of an audio node
     enum class AudioNodeState
     {
-        WaitingForDependencies,
-        PendingProcessing,
-        ProcessingDone,
+        Waiting,
+        Ready,
+        Busy,
+        Idle,
     };
 
     // Base class of processing nodes of the audio graph
@@ -237,32 +394,22 @@ namespace Midnight
         }
 
     protected:
-        //
-        // Methods to override for custom node processing
-        //
+        // Method to override for custom node processing
+        virtual Result Execute(Passkey<IAudioGraph>, const AudioAsset* audioAsset, AudioBuffer*& buffer) = 0;
 
-        virtual Result Prepare()
+        virtual Result Prepare(Passkey<IAudioGraph>)
         {
-            return Result::Ok;
+            AudioNodeState doneState = AudioNodeState::Idle;
+            CompareExchange(_State, doneState, AudioNodeState::Waiting);
+            return Ok;
         }
 
-        virtual Result Process(const AudioAsset* asset, AudioSampleBuffer* input, AudioSampleBuffer* output) = 0;
-
-    private:
         // Nodes can only be constructed by AudioGraph
-        friend class AudioGraph;
         AudioNode()
         {
         }
 
-        Result Prepare(Passkey<AudioGraph>)
-        {
-            AudioNodeState processingDoneState = AudioNodeState::ProcessingDone;
-            CompareExchange(_State, processingDoneState, AudioNodeState::WaitingForDependencies);
-            return Prepare();
-        }
-
-        Result ConnectPrevious(AudioNode* node)
+        Result ConnectPrevious(Passkey<IAudioGraph>, AudioNode* node)
         {
             if (node == nullptr)
                 return Result::Nullptr;
@@ -272,7 +419,7 @@ namespace Midnight
                 return Result::UnableToConnect;
         }
 
-        Result ConnectOutput(AudioNode* node)
+        Result ConnectOutput(Passkey<IAudioGraph>, AudioNode* node)
         {
             if (node ==  nullptr)
                 return Result::Nullptr;
@@ -282,7 +429,7 @@ namespace Midnight
                 return Result::UnableToConnect;
         }
 
-        Result DisconnectNode(AudioNode* node)
+        Result DisconnectNode(Passkey<IAudioGraph>, AudioNode* node)
         {
             if (node ==  nullptr)
                 return Result::Nullptr;
@@ -309,7 +456,7 @@ namespace Midnight
 
     protected:
         Atomic<AudioNodeState> _State;
-        AudioSampleBuffer* _Buffer;
+        MemoryPoolReference<AudioBuffer> _Buffer;
         Set<AudioNode*> _InputNodes;
         Set<AudioNode*> _OutputNodes;
 
@@ -411,14 +558,8 @@ namespace Midnight
         };
     };
 
-    enum class AudioGraphState
-    {
-        Idle,
-        Processing
-    };
-
     // Class storing all the audio nodes of the engine
-    class AudioGraph
+    class AudioGraph : public IAudioGraph
     {
     public:
         AudioGraph()
@@ -431,22 +572,26 @@ namespace Midnight
             return _State;
         }
 
-        Result Process(AudioSampleBuffer outputBuffer)
+        Result SetupOutputNode(AudioOutput* outputNode)
+        {
+            return Result::NotYetImplemented;
+        }
+
+        Result Execute(AudioBuffer* outputBuffer)
         {
             AudioGraphState idleState = AudioGraphState::Idle;
-            if (!CompareExchange(_State, idleState, AudioGraphState::Processing))
+            if (!CompareExchange(_State, idleState, AudioGraphState::Busy))
                 return Result::AlreadyProcessing;
             Result result = Result::Ok;
             result = UpdateNodes();
             if (result != Result::Ok)
                 return result;
-            result = ValidateGraph(); // NotImplementedYet
-            //if (result != Result::Ok)
-            //    return result;
+            result = ValidateGraph();
+            if (result != Result::Ok)
+                return result;
             for (AudioNode* node : _Nodes)
-                node->Prepare(_Passkey);
-
-            
+                node->Prepare();
+            return _OutputNode->Execute(nullptr, outputBuffer);
         }
 
         template <class T, class... Args>
@@ -457,7 +602,7 @@ namespace Midnight
             T* node = new T(std::forward<Args>(args)...);
             if (node != nullptr)
             {
-                ScopedMutex lock(_NodesMutex);
+                ScopedMutex lock(_UpdateNodesMutex);
                 if (_NodesToAdd.Insert(static_cast<AudioNode*>(node)))
                 {
                     LOG("Added node %s to AudioGraph.", node->GetName().CStr());
@@ -478,7 +623,7 @@ namespace Midnight
         {
             static_assert(IsDerivedFrom<AudioNode, T>, "T must be derived from AudioNode");
 
-            ScopedMutex lock(_NodesMutex);
+            ScopedMutex lock(_UpdateNodesMutex);
             if (node == nullptr)
                 return Result::Nullptr;
             if (_NodesToRemove.Insert(static_cast<AudioNode*>(node)))
@@ -532,7 +677,7 @@ namespace Midnight
 
         Result UpdateNodes()
         {
-            ScopedMutex lock(_NodesMutex);
+            ScopedMutex lock(_UpdateNodesMutex);
             for (AudioNode* node : _NodesToRemove)
                 _Nodes.Remove(node);
             _NodesToRemove.Clear();
@@ -543,20 +688,42 @@ namespace Midnight
 
         Result ValidateGraph() const
         {
-            // Make sure that all path reach the output
-            // Make sure that there are no feedback loops
-            return Result::NotYetImplemented;
+            // TODO: Make sure that all path reach the output
+            // TODO: Make sure that there are no feedback loops
+            if (_OutputNode == nullptr)
+                return Result::MissingOutputNode;
+            return Result::Ok;
         }
 
     private:
-        Mutex _NodesMutex;
+        Mutex _UpdateNodesMutex;
         Set<AudioNode*> _Nodes;
         Set<AudioNode*> _NodesToAdd;
         Set<AudioNode*> _NodesToRemove;
         AudioNode* _OutputNode;
         Atomic<AudioGraphState> _State;
+    };
 
-        static Passkey<AudioGraph> _Passkey;
+    class MixerNode : public AudioNode
+    {
+        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer*& buffer)
+        {
+
+        }
+    };
+
+    class AudioOutput : public AudioNode
+    {
+        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer*& buffer)
+        {
+            // This is where everything starts...
+
+
+
+
+
+            return Result::Ok;
+        }
     };
 
     class AudioSource : public AudioNode
@@ -570,15 +737,15 @@ namespace Midnight
         Bool loop;
 
     private:
-        virtual Result Process(AudioAsset* audioAsset, AudioSampleBuffer* input, AudioSampleBuffer* output)
+        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer*& buffer)
         {
             return Result::Ok;
         }
 
         virtual Result Prepare()
         {
-            AudioNodeState processingDoneState = AudioNodeState::ProcessingDone;
-            CompareExchange(_State, processingDoneState, AudioNodeState::PendingProcessing);
+            AudioNodeState doneState = AudioNodeState::Idle;
+            CompareExchange(_State, doneState, AudioNodeState::Ready);
             return Result::Ok;
         }
 
@@ -588,97 +755,33 @@ namespace Midnight
         AudioAsset* _AudioAsset;
     };
 
-    class IAudioService
-    {
-    public:
-        virtual Result Initialize() = 0;
-        virtual Result Shutdown() = 0;
-        virtual Result Reset() = 0;
-    };
-
-    enum class AudioDeviceType
-    {
-        Playback,
-        Recording
-    };
-
-    struct AudioDeviceDescription
-    {
-        String name;
-        U32 channels;
-        U32 sampleRate;
-        Bool defaultDevice;
-        AudioDeviceType deviceType;
-    };
-
-    using AudioPlaybackCallback = void(*)(U8* destination, U32 channels, U32 frames, Result error);
-
-    class IAudioDeviceManager : public IAudioService
-    {
-    public:
-        virtual Result RegisterPlaybackCallback(AudioPlaybackCallback callback, void* userData) = 0;
-        virtual Result EnumerateDevices(U32& deviceCount, const AudioDeviceDescription*& devices) = 0;
-        virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;
-        virtual Result Start() = 0;
-        virtual Result Stop() = 0;
-    };
-
-    class IAudioFile
-    {
-    public:
-        virtual Result Seek(F32 seconds) = 0;
-        virtual Result Seek(U32 frame) = 0;
-        virtual Result GetFramePosition(U32& frame) = 0;
-        virtual Result GetTimePosition(F32& seconds) = 0;
-        virtual Result Read(U32 frameCountRequested, AudioSampleBuffer*& buffer);
-    };
-
-    class IAudioDecoder : public IAudioService
-    {
-    public:
-        virtual Result CreateSampleBuffer(const String& filePath, AudioSampleBuffer*& destination) = 0;
-        virtual Result OpenFile(const String& filePath, IAudioFile*& audioFile);
-
-    };
-
-    class IAudioResampler : public IAudioService
-    {
-    public:
-        virtual Result Resample(const AudioSampleBuffer* source, AudioSampleBuffer*& destination) = 0;
-    };
-
-    class IAudioChannelRemapper : public IAudioService
-    {
-    public:
-        virtual Result Remap(const AudioSampleBuffer* source, AudioSampleBuffer*& destination) = 0;
-    };
-
-    struct AudioManagerServices
-    {
-    public:
-        SharedPtr<IAudioDeviceManager> deviceManager;
-        SharedPtr<IAudioDecoder> decoder;
-        SharedPtr<IAudioResampler> resampler;
-        SharedPtr<IAudioChannelRemapper> remapper;
-    };
-
     struct AudioManagerConfig
     {
         U32 maxAudibleSources;
     };
 
-    class AudioManager
+    class AudioSystem
     {
     public:
-        Result Initialize(const AudioManagerServices& services, const AudioManagerConfig& config);
+        Result Initialize(const AudioServices& services, const AudioManagerConfig& config);
         Result Shutdown();
         AudioAsset* LoadAudioAsset(const String& filePath);
         Result UnloadAudioAsset(const AudioAsset* audioAsset);
         AudioSource* CreateAudioSource(const AudioAsset* audioAsset, const AudioNode* inputNode);
         Result DestroyAudioSource(const AudioSource* audioSource);
 
+        AudioGraph& GetAudioGraph()
+        {
+            return _AudioGraph;
+        }
+
+        Result SetAudioDeviceManager(IAudioDeviceManager* deviceManagerImplementation)
+        {
+            return Result::NotYetImplemented;
+        }
+
     private:
-        AudioManagerServices _Services;
+        AudioServices _Services;
         AudioManagerConfig _Config;
         Map<AudioAsset*, Set<AudioSource*>> _AudioSources;
         AudioGraph _AudioGraph;
