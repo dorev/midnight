@@ -730,13 +730,92 @@ public:
 // Pointers
 ///////////////////////////////////////////////////////////////////////////////
 
-template <class T>
-using UniquePtr = std::unique_ptr<T>;
+template <typename T>
+class UniquePtr
+{
+public:
+    UniquePtr()
+        : _Pointer(nullptr)
+    {
+    }
+
+    explicit UniquePtr(T* ptr)
+        : _Pointer(ptr)
+    {
+    }
+
+    ~UniquePtr()
+    {
+        if (_Pointer != nullptr)
+            delete _Pointer;
+    }
+
+    UniquePtr(const UniquePtr&) = delete;
+    UniquePtr& operator=(const UniquePtr&) = delete;
+
+    UniquePtr(UniquePtr&& other) noexcept
+        : _Pointer(other._Pointer)
+    {
+        other._Pointer = nullptr;
+    }
+
+    UniquePtr& operator=(UniquePtr&& other) noexcept
+    {
+        if (this != &other)
+        {
+            Reset(other._Pointer);
+            other._Pointer = nullptr;
+        }
+        return *this;
+    }
+
+    T& operator*() const
+    {
+        return *_Pointer;
+    }
+
+    T* operator->() const
+    {
+        return _Pointer;
+    }
+
+    Bool operator==(void* pointer)
+    {
+        return pointer == _Pointer;
+    }
+
+    Bool operator!=(void* pointer)
+    {
+        return pointer != _Pointer;
+    }
+
+    T* Get() const
+    {
+        return _Pointer;
+    }
+
+    T* Release()
+    {
+        T* pointer = _Pointer;
+        _Pointer = nullptr;
+        return pointer;
+    }
+
+    void Reset(T* pointer = nullptr)
+    {
+        if (_Pointer != nullptr)
+            delete _Pointer;
+        _Pointer = pointer;
+    }
+
+private:
+    T* _Pointer;
+};
 
 template <class T, class... Args>
 UniquePtr<T> MakeUnique(Args&&... args)
 {
-    return std::make_unique<T>(std::forward<Args>(args)...);
+    return UniquePtr<T>(new T(std::forward<Args>(args)...));
 }
 
 template <class T>

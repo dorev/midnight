@@ -30,6 +30,9 @@ namespace Midnight
         BlockOutOfRange,
         BufferOutOfRange,
         FailedAllocation,
+        InvalidEnumValue,
+        CallingStub,
+        ServiceUnavailable,
         Unknown = U32MAX
     };
 
@@ -61,22 +64,34 @@ namespace Midnight
     //
     // Interfaces
     //
-    class IAudioSystem
+    enum class AudioServiceType
     {
-    public:
-        virtual IAudioGraph& GetGraph() = 0;
-        virtual IAudioDecoder& GetDecoder() = 0;
-        virtual IAudioDeviceManager& GetDeviceManager() = 0;
-        virtual IAudioResampler& GetResampler() = 0;
-        virtual IAudioChannelRemapper& GetChannelRemapper() = 0;
+        Graph,
+        Decoder,
+        Resampler,
+        ChannelRemapper,
+        DeviceManager,
+        BufferProvider
     };
 
     class IAudioService
     {
     public:
-        virtual Result Initialize() = 0;
-        virtual Result Shutdown() = 0;
-        virtual Result Reset() = 0;
+        virtual AudioServiceType GetType() const = 0;
+        virtual Char* GetName() const = 0;
+
+        virtual Result Initialize()
+        {
+            return Result::Ok;
+        }
+        virtual void Shutdown()
+        {
+        }
+        virtual Result Reset()
+        {
+            return Result::Ok;
+        }
+
     };
 
     //
@@ -96,11 +111,34 @@ namespace Midnight
         FLAG(Ambisonic, 10),
     };
 
-    class IAudioBufferProvider
+    class IAudioBufferProvider : public IAudioService
     {
     public:
-        virtual Result AllocateBuffer(AudioBuffer&) = 0;
-        virtual Result ReleaseBuffer(AudioBuffer&) = 0;
+        AudioServiceType GetType() const override
+        {
+            return AudioServiceType::BufferProvider;
+        }
+        virtual Result AllocateBuffer(AudioBuffer& buffer) = 0;
+        virtual Result ReleaseBuffer(AudioBuffer& buffer) = 0;
+    };
+
+    class AudioBufferProviderStub : public IAudioBufferProvider
+    {
+    public:
+        Char* GetName() const final override
+        {
+            return "IAudioBufferProvider stub";
+        }
+
+        Result AllocateBuffer(AudioBuffer& buffer) final override
+        {
+            return Result::CallingStub;
+        }
+
+        Result ReleaseBuffer(AudioBuffer& buffer) final override
+        {
+            return Result::CallingStub;
+        }
     };
 
     // Encapsulates an audio data pointer and the information related
@@ -204,8 +242,6 @@ namespace Midnight
             {
                 if (_Data == nullptr)
                     LOG_ERROR("Failed to allocate buffer block!");
-                else
-                    ZeroizeMemory(_Data, bufferSize * BlockSize);
             }
 
             Block(const Block&) = delete;
@@ -342,9 +378,6 @@ namespace Midnight
         Vector<U32> _NextBufferIndex;
     };
 
-
-
-
     //
     // Device management
     //
@@ -368,11 +401,50 @@ namespace Midnight
     class IAudioDeviceManager : public IAudioService
     {
     public:
+        AudioServiceType GetType() const override
+        {
+            return AudioServiceType::DeviceManager;
+        }
         virtual Result RegisterPlaybackCallback(AudioPlaybackCallback callback, void* userData) = 0;
         virtual Result EnumerateDevices(U32& deviceCount, const AudioDeviceDescription*& devices) = 0;
         virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;
         virtual Result Start() = 0;
         virtual Result Stop() = 0;
+    };
+
+    class AudioDeviceManagerStub : public IAudioDeviceManager
+    {
+    public:
+        Char* GetName() const final override
+        {
+            return "IAudioDeviceManager stub";
+        }
+
+        Result RegisterPlaybackCallback(AudioPlaybackCallback callback, void* userData) final override
+        {
+            return Result::CallingStub;
+        }
+
+        Result EnumerateDevices(U32& deviceCount, const AudioDeviceDescription*& devices) final override
+        {
+            return Result::CallingStub;
+        }
+
+        Result SelectPlaybackDevice(const AudioDeviceDescription* device) final override
+        {
+            return Result::CallingStub;
+        }
+
+        Result Start() final override
+        {
+            return Result::CallingStub;
+        }
+
+        Result Stop() final override
+        {
+            return Result::CallingStub;
+        }
+
     };
 
     //
@@ -385,15 +457,37 @@ namespace Midnight
         virtual Result Seek(U32 frame) = 0;
         virtual Result GetFramePosition(U32& frame) = 0;
         virtual Result GetTimePosition(F32& seconds) = 0;
-        virtual Result Read(U32 frameCountRequested, AudioBuffer*& buffer);
+        virtual Result Read(U32 frameCountRequested, AudioBuffer*& buffer) = 0;
     };
 
     class IAudioDecoder : public IAudioService
     {
     public:
+        AudioServiceType GetType() const override
+        {
+            return AudioServiceType::Decoder;
+        }
         virtual Result CreateSampleBuffer(const String& filePath, AudioBuffer*& destination) = 0;
-        virtual Result OpenFile(const String& filePath, IAudioFile*& audioFile);
+        virtual Result OpenFile(const String& filePath, IAudioFile*& audioFile) = 0;
+    };
 
+    class AudioDecoderStub : public IAudioDecoder
+    {
+    public:
+        Char* GetName() const final override
+        {
+            return "IAudioDecoder stub";
+        }
+
+        virtual Result CreateSampleBuffer(const String& filePath, AudioBuffer*& destination) final override
+        {
+            return Result::CallingStub;
+        }
+
+        virtual Result OpenFile(const String& filePath, IAudioFile*& audioFile) final override
+        {
+            return Result::CallingStub;
+        }
     };
 
     //
@@ -402,7 +496,25 @@ namespace Midnight
     class IAudioResampler : public IAudioService
     {
     public:
+        AudioServiceType GetType() const override
+        {
+            return AudioServiceType::Resampler;
+        }
         virtual Result Resample(const AudioBuffer* source, AudioBuffer*& destination) = 0;
+    };
+
+    class AudioResamplerStub : public IAudioResampler
+    {
+    public:
+        Char* GetName() const final override
+        {
+            return "IAudioResampler stub";
+        }
+
+        Result Resample(const AudioBuffer* source, AudioBuffer*& destination) final override
+        {
+            return Result::CallingStub;
+        }
     };
 
     //
@@ -411,7 +523,25 @@ namespace Midnight
     class IAudioChannelRemapper : public IAudioService
     {
     public:
+        AudioServiceType GetType() const override
+        {
+            return AudioServiceType::ChannelRemapper;
+        }
         virtual Result Remap(const AudioBuffer* source, AudioBuffer*& destination) = 0;
+    };
+
+    class AudioChannelRemapperStub : public IAudioChannelRemapper
+    {
+    public:
+        Char* GetName() const final override
+        {
+            return "IAudioChannelRemapper stub";
+        }
+
+        Result Remap(const AudioBuffer* source, AudioBuffer*& destination) final override
+        {
+            return Result::CallingStub;
+        }
     };
 
     //
@@ -425,14 +555,169 @@ namespace Midnight
 
     using AudioGraphTask = Result(*)(IAudioGraph&);
 
-    class IAudioGraph
+    class IAudioGraph : public IAudioService
     {
     public:
-        virtual Result Execute(AudioGraphTask worker) = 0;
+        AudioServiceType GetType() const override
+        {
+            return AudioServiceType::Graph;
+        }
+        virtual Result Execute(AudioGraphTask task) = 0;
         virtual Result GetNodes(Set<AudioNode*>& nodes) = 0;
         virtual AudioGraphState GetState() const = 0;
     };
 
+    class AudioGraphStub : public IAudioGraph
+    {
+        Char* GetName() const final override
+        {
+            return "IAudioGraph stub";
+        }
+
+        Result Execute(AudioGraphTask) final override
+        {
+            return Result::CallingStub;
+        }
+
+        Result GetNodes(Set<AudioNode*>& nodes) final override
+        {
+            return Result::CallingStub;
+        }
+
+        AudioGraphState GetState() const final override
+        {
+            return AudioGraphState::Busy;
+        }
+    };
+
+    //
+    // System
+    //
+
+    struct AudioSystemConfig
+    {
+        U32 maxAudibleSources;
+    };
+
+    class IAudioSystem
+    {
+    public:
+        const AudioSystemConfig& GetConfig() const
+        {
+            return _Config;
+        }
+
+        IAudioGraph& GetGraph()
+        {
+            if (_Graph == nullptr)
+                return _GraphStub;
+            return *_Graph;
+        }
+
+        IAudioDecoder& GetDecoder()
+        {
+            if (_Decoder == nullptr)
+                return _DecoderStub;
+            return *_Decoder;
+        }
+
+        IAudioDeviceManager& GetDeviceManager()
+        {
+            if (_DeviceManager == nullptr)
+                return _DeviceManagerStub;
+            return *_DeviceManager;
+        }
+
+        IAudioResampler& GetResampler()
+        {
+            if (_Resampler == nullptr)
+                return _ResamplerStub;
+            return *_Resampler;
+        }
+
+        IAudioChannelRemapper& GetChannelRemapper()
+        {
+            if (_ChannelRemapper == nullptr)
+                return _ChannelRemapperStub;
+            return *_ChannelRemapper;
+        }
+
+        IAudioBufferProvider& GetBufferProvider()
+        {
+            if (_BufferProvider == nullptr)
+                return _BufferProviderStub;
+            return *_BufferProvider;
+        }
+
+    protected:
+        void Configure(const AudioSystemConfig& config)
+        {
+            _Config = config;
+        }
+
+        Result SetService(IAudioService* service)
+        {
+            if (service == nullptr)
+                return Result::Nullptr;
+
+            switch(service->GetType())
+            {
+                case AudioServiceType::Graph:
+                    if (_Graph != nullptr)
+                        _Graph->Shutdown();
+                    _Graph.Reset(static_cast<IAudioGraph*>(service));
+                    return _Graph->Initialize();
+
+                case AudioServiceType::Decoder:
+                    if (_Decoder != nullptr)
+                        _Decoder->Shutdown();
+                    _Decoder.Reset(static_cast<IAudioDecoder*>(service));
+                    return _Decoder->Initialize();
+
+                case AudioServiceType::BufferProvider:
+                    if (_BufferProvider != nullptr)
+                        _BufferProvider->Shutdown();
+                    _BufferProvider.Reset(static_cast<IAudioBufferProvider*>(service));
+                    return _BufferProvider->Initialize();
+
+                case AudioServiceType::Resampler:
+                    if (_Resampler != nullptr)
+                        _Resampler->Shutdown();
+                    _Resampler.Reset(static_cast<IAudioResampler*>(service));
+                    return _Resampler->Initialize();
+
+                case AudioServiceType::ChannelRemapper:
+                    if (_ChannelRemapper != nullptr)
+                        _ChannelRemapper->Shutdown();
+                    _ChannelRemapper.Reset(static_cast<IAudioChannelRemapper*>(service));
+                    return _ChannelRemapper->Initialize();
+
+                case AudioServiceType::DeviceManager:
+                    if (_DeviceManager != nullptr)
+                        _DeviceManager->Shutdown();
+                    _DeviceManager.Reset(static_cast<IAudioDeviceManager*>(service));
+                    return _Graph->Initialize();
+
+                default:
+                    return Result::InvalidEnumValue;
+            }
+        }
+
+        AudioGraphStub _GraphStub;
+        AudioDecoderStub _DecoderStub;
+        AudioDeviceManagerStub _DeviceManagerStub;
+        AudioResamplerStub _ResamplerStub;
+        AudioChannelRemapperStub _ChannelRemapperStub;
+        AudioBufferProviderStub _BufferProviderStub;
+
+        AudioSystemConfig _Config;
+        UniquePtr<IAudioGraph> _Graph;
+        UniquePtr<IAudioDecoder> _Decoder;
+        UniquePtr<IAudioDeviceManager> _DeviceManager;
+        UniquePtr<IAudioResampler> _Resampler;
+        UniquePtr<IAudioChannelRemapper> _ChannelRemapper;
+        UniquePtr<IAudioBufferProvider> _BufferProvider;
+    };
     //
     // Audio specific helpers
     //
@@ -514,52 +799,16 @@ namespace Midnight
             return _Name;
         }
 
-    protected:
         // Method to override for custom node processing
-        virtual Result Execute(Passkey<IAudioGraph>, const AudioAsset* audioAsset, AudioBuffer*& buffer) = 0;
+        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer& buffer) = 0;
 
-        virtual Result Prepare(Passkey<IAudioGraph>)
+        virtual Result Prepare()
         {
             AudioNodeState doneState = AudioNodeState::Idle;
             CompareExchange(_State, doneState, AudioNodeState::Waiting);
-            return Ok;
-        }
-
-        // Nodes can only be constructed by AudioGraph
-        AudioNode()
-        {
-        }
-
-        Result ConnectPrevious(Passkey<IAudioGraph>, AudioNode* node)
-        {
-            if (node == nullptr)
-                return Result::Nullptr;
-            if (_InputNodes.Insert(node))
-                return Result::Ok;
-            else
-                return Result::UnableToConnect;
-        }
-
-        Result ConnectOutput(Passkey<IAudioGraph>, AudioNode* node)
-        {
-            if (node ==  nullptr)
-                return Result::Nullptr;
-            if (_OutputNodes.Insert(node))
-                return Result::Ok;
-            else
-                return Result::UnableToConnect;
-        }
-
-        Result DisconnectNode(Passkey<IAudioGraph>, AudioNode* node)
-        {
-            if (node ==  nullptr)
-                return Result::Nullptr;
-            _InputNodes.Remove(node);
-            _OutputNodes.Remove(node);
             return Result::Ok;
         }
 
-    private:
         virtual Result Initialize()
         {
             return Result::Ok;
@@ -575,9 +824,38 @@ namespace Midnight
             return Result::Ok;
         }
 
+        Result ConnectPrevious(AudioNode* node)
+        {
+            if (node == nullptr)
+                return Result::Nullptr;
+            if (_InputNodes.Insert(node))
+                return Result::Ok;
+            else
+                return Result::UnableToConnect;
+        }
+
+        Result ConnectOutput(AudioNode* node)
+        {
+            if (node ==  nullptr)
+                return Result::Nullptr;
+            if (_OutputNodes.Insert(node))
+                return Result::Ok;
+            else
+                return Result::UnableToConnect;
+        }
+
+        Result DisconnectNode(AudioNode* node)
+        {
+            if (node ==  nullptr)
+                return Result::Nullptr;
+            _InputNodes.Remove(node);
+            _OutputNodes.Remove(node);
+            return Result::Ok;
+        }
+
     protected:
         Atomic<AudioNodeState> _State;
-        MemoryPoolReference<AudioBuffer> _Buffer;
+        AudioBuffer _Buffer;
         Set<AudioNode*> _InputNodes;
         Set<AudioNode*> _OutputNodes;
 
@@ -683,14 +961,32 @@ namespace Midnight
     class AudioGraph : public IAudioGraph
     {
     public:
-        AudioGraph()
-            : _State(AudioGraphState::Idle)
+        AudioGraph(IAudioSystem& system)
+            : _System(system)
+            , _State(AudioGraphState::Idle)
         {
         }
 
-        AudioGraphState GetState() const
+        AudioGraphState GetState() const override
         {
             return _State;
+        }
+
+        Char* GetName() const override
+        {
+            return "AudioGraph";
+        }
+
+        Result GetNodes(Set<AudioNode*>& nodes) override
+        {
+            nodes = _Nodes;
+            return Result::Ok;
+        }
+
+
+        Result Execute(AudioGraphTask task) override
+        {
+            return Result::Ok;
         }
 
         Result SetupOutputNode(AudioOutput* outputNode)
@@ -698,7 +994,7 @@ namespace Midnight
             return Result::NotYetImplemented;
         }
 
-        Result Execute(AudioBuffer* outputBuffer)
+        virtual Result Execute(AudioBuffer& outputBuffer)
         {
             AudioGraphState idleState = AudioGraphState::Idle;
             if (!CompareExchange(_State, idleState, AudioGraphState::Busy))
@@ -817,6 +1113,7 @@ namespace Midnight
         }
 
     private:
+        IAudioSystem& _System;
         Mutex _UpdateNodesMutex;
         Set<AudioNode*> _Nodes;
         Set<AudioNode*> _NodesToAdd;
@@ -827,7 +1124,7 @@ namespace Midnight
 
     class MixerNode : public AudioNode
     {
-        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer*& buffer)
+        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer& buffer)
         {
 
         }
@@ -835,7 +1132,7 @@ namespace Midnight
 
     class AudioOutput : public AudioNode
     {
-        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer*& buffer)
+        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer& buffer)
         {
             // This is where everything starts...
 
@@ -858,7 +1155,7 @@ namespace Midnight
         Bool loop;
 
     private:
-        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer*& buffer)
+        virtual Result Execute(const AudioAsset* audioAsset, AudioBuffer& buffer)
         {
             return Result::Ok;
         }
@@ -876,35 +1173,22 @@ namespace Midnight
         AudioAsset* _AudioAsset;
     };
 
-    struct AudioManagerConfig
-    {
-        U32 maxAudibleSources;
-    };
 
-    class AudioSystem
+    class AudioSystem : public IAudioSystem
     {
     public:
-        Result Initialize(const AudioServices& services, const AudioManagerConfig& config);
+        using IAudioSystem::Configure;
+        using IAudioSystem::SetService;
+
         Result Shutdown();
         AudioAsset* LoadAudioAsset(const String& filePath);
         Result UnloadAudioAsset(const AudioAsset* audioAsset);
         AudioSource* CreateAudioSource(const AudioAsset* audioAsset, const AudioNode* inputNode);
         Result DestroyAudioSource(const AudioSource* audioSource);
 
-        AudioGraph& GetAudioGraph()
-        {
-            return _AudioGraph;
-        }
-
-        Result SetAudioDeviceManager(IAudioDeviceManager* deviceManagerImplementation)
-        {
-            return Result::NotYetImplemented;
-        }
-
     private:
-        AudioServices _Services;
-        AudioManagerConfig _Config;
+        AudioSystemConfig _Config;
         Map<AudioAsset*, Set<AudioSource*>> _AudioSources;
-        AudioGraph _AudioGraph;
+        IAudioGraph* _AudioGraph;
     };
 }
