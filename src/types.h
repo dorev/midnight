@@ -228,11 +228,10 @@ public:
     }
 
     template <class... Args>
-    void EmplaceBack(Args... args)
+    T& EmplaceBack(Args... args)
     {
-        _Vector.emplace_back(std::forward<Args>(args)...);
+        return _Vector.emplace_back(std::forward<Args>(args)...);
     }
-
 
     T& Back()
     {

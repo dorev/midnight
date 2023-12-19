@@ -27,6 +27,8 @@ namespace Midnight
         UnableToAddNode,
         MissingOutputNode,
         OutOfRange,
+        BlockOutOfRange,
+        BufferOutOfRange,
         FailedAllocation,
         Unknown = U32MAX
     };
@@ -94,35 +96,103 @@ namespace Midnight
         FLAG(Ambisonic, 10),
     };
 
+    class IAudioBufferProvider
+    {
+    public:
+        virtual Result AllocateBuffer(AudioBuffer&) = 0;
+        virtual Result ReleaseBuffer(AudioBuffer&) = 0;
+    };
+
     // Encapsulates an audio data pointer and the information related
     // to its structure (channels, sample rate, etc.)
     class AudioBuffer
     {
     public:
-        AudioBuffer(U8* data, U32 size)
-            : _Data(data)
-            , _Size(size)
+        AudioBuffer(IAudioBufferProvider& pool, U8* data, U32 capacity)
+            : _Pool(pool)
+            , _Data(data)
+            , _Size(0)
+            , _Capacity(capacity)
+            , _Channels(0)
+            , _SampleRate(0)
+            , _Format(AudioFormat::NotSpecified)
+            , _RefCount(new Atomic<U32>(1))
         {
+        }
+
+        ~AudioBuffer()
+        {
+            DecrementRefCount();
+        }
+
+        AudioBuffer(const AudioBuffer& other)
+            : _Pool(other._Pool)
+            , _Data(other._Data)
+            , _Size(other._Size)
+            , _Capacity(other._Capacity)
+            , _Channels(other._Channels)
+            , _SampleRate(other._SampleRate)
+            , _Format(other._Format)
+            , _RefCount(other._RefCount)
+        {
+            if (_RefCount != nullptr)
+                _RefCount->fetch_add(1);
+        }
+
+        AudioBuffer& operator=(const AudioBuffer& other)
+        {
+            if (this != &other)
+            {
+                _Pool = other._Pool;
+                _Data = other._Data;
+                _Size = other._Size;
+                _Capacity = other._Capacity;
+                _Channels = other._Channels;
+                _SampleRate = other._SampleRate;
+                _Format = other._Format;
+                _RefCount = other._RefCount;
+                if (_RefCount != nullptr)
+                    _RefCount->fetch_add(1);
+            }
+            return *this;
+        }
+
+        U8* GetData()
+        {
+            return _Data;
+        }
+
+    private:
+        void DecrementRefCount()
+        {
+            if (_RefCount != nullptr && _RefCount->fetch_sub(1) == 1)
+            {
+                _Pool.ReleaseBuffer(*this);
+                delete _RefCount;
+                _RefCount = nullptr;
+                _Data = nullptr;
+            }
         }
 
     private:
         U8* _Data;
         U32 _Size;
+        U32 _Capacity;
 
         U32 _Channels;
         U32 _SampleRate;
         AudioFormat _Format;
 
         Atomic<U32>* _RefCount;
-        AudioBufferPool* _Pool;
+        IAudioBufferProvider& _Pool;
     };
 
-    class AudioBufferPool
+    template <U32 BlockSize = 32>
+    class AudioBufferPool : IAudioBufferProvider
     {
-        static constexpr U32 BlockSize = 32;
-        static constexpr U32 TailIndex = U32MAX;
-
     private:
+        static constexpr U32 TailSentinel = U32MAX;
+
         class Block
         {
         public:
@@ -134,6 +204,8 @@ namespace Midnight
             {
                 if (_Data == nullptr)
                     LOG_ERROR("Failed to allocate buffer block!");
+                else
+                    ZeroizeMemory(_Data, bufferSize * BlockSize);
             }
 
             Block(const Block&) = delete;
@@ -145,7 +217,7 @@ namespace Midnight
                     delete[] _Data;
             }
 
-            U8* GetBufferPointer(U32 index)
+            U8* GetBufferData(U32 index)
             {
                 if (_Data != nullptr)
                     return &_Data[_BufferSize * index];
@@ -159,27 +231,51 @@ namespace Midnight
         };
 
     public:
-        AudioBufferPool(U32 bufferSize)
-            : _BufferSize(bufferSize)
+        AudioBufferPool(U32 bufferCapacity)
+            : _BufferCapacity(bufferCapacity)
             , _Head(0)
         {
             InitializeNewBlock();
         }
 
-        Result GetBuffer(AudioBuffer& buffer)
+        virtual Result AllocateBuffer(AudioBuffer& buffer)
         {
-            U32 currentIndex;
+            U32 currentIndex = TailSentinel;
             do
             {
                 currentIndex = _Head;
-                if (currentIndex == TailIndex)
+                if (currentIndex == TailSentinel)
                     ExpandPool(currentIndex);
             }
             while (!CompareExchange(_Head, currentIndex, _NextBufferIndex[currentIndex]));
 
             U32 blockIndex = currentIndex / BlockSize;
             U32 bufferIndex = currentIndex % BlockSize;
-            buffer = AudioBuffer(_Blocks[blockIndex]->GetBufferPointer(bufferIndex), _BufferSize);
+            U8* bufferData = _Blocks[blockIndex]->GetBufferData(bufferIndex);
+            buffer = AudioBuffer(&this, bufferData, _BufferCapacity);
+            return Result::Ok;
+        }
+
+        virtual Result ReleaseBuffer(AudioBuffer& buffer)
+        {
+            U8* data = buffer.GetData();
+            if (data == nullptr)
+                return Result::Nullptr;
+            Block* block = nullptr;
+            U32 blockIndex = TailSentinel;
+            if (!FindBlockIndex(data, block, blockIndex))
+                return Result::BlockOutOfRange;
+            U32 bufferIndex = 0;
+            if(!FindBufferIndex(data, block, bufferIndex))
+                return Result::BufferOutOfRange;
+            U32 bufferPoolIndex = blockIndex * BlockSize + bufferIndex;
+            U32 currentHead = TailSentinel;
+            do
+            {
+                currentHead = _Head;
+                _Blocks[blockIndex]->buffers[bufferIndex] = currentHead;
+            }
+            while (!CompareExchange(_Head, currentHead, bufferPoolIndex));
             return Result::Ok;
         }
 
@@ -187,20 +283,19 @@ namespace Midnight
         void ExpandPool(U32& currentIndex)
         {
             ScopedMutex lock(_ExpansionMutex);
-            if (_Head == TailIndex)
+            if (_Head == TailSentinel)
             {
                 U32 tailIndexFix = _Blocks.Size() * BlockSize;
                 _NextBufferIndex[_NextBufferIndex.Size() - 1] = tailIndexFix;
                 _Head = tailIndexFix;
                 currentIndex = tailIndexFix;
-
                 InitializeNewBlock();
             }
         }
 
         Block* InitializeNewBlock()
         {
-            Block* block = new Block(_BufferSize);
+            Block* block = new Block(_BufferCapacity);
             _Blocks.EmplaceBack(block);
 
             U32 baseIndex = BlockSize * (_Blocks.Size() - 1);
@@ -208,14 +303,40 @@ namespace Midnight
             for (U32 i = 0; i < BlockSize; ++i)
                 _NextBufferIndex.PushBack(baseIndex + i + 1);
 
-            _NextBufferIndex[_NextBufferIndex.Size() - 1] = TailIndex;
+            _NextBufferIndex[_NextBufferIndex.Size() - 1] = TailSentinel;
 
             return block;
         }
 
+        Bool FindBlockIndex(U8* pointer, Block*& block, U32& blockIndex)
+        {
+            for (blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
+            {
+                block= _Blocks[blockIndex]->get();
+                U8* blockStart = block->GetBufferData(0);
+                U8* blockEnd = blockStart + BlockSize * _BufferCapacity;
+                if (pointer >= blockStart && pointer < blockEnd)
+                    return true;
+            }
+            block = nullptr;
+            blockIndex = TailSentinel;
+            return false;
+        }
+
+        Bool FindBufferIndex(U8* pointer, Block* block, U32& bufferIndex)
+        {
+            for (bufferIndex = 0; bufferIndex < BlockSize; ++bufferIndex)
+            {
+                if (buffer->GetBufferData(bufferIndex) == pointer)
+                    return true;
+            }
+            bufferIndex = TailSentinel;
+            return false;
+        }
+
     private:
         Mutex _ExpansionMutex;
-        U32 _BufferSize;
+        U32 _BufferCapacity;
         Atomic<U32> _Head;
         Vector<UniquePtr<Block>> _Blocks;
         Vector<U32> _NextBufferIndex;
