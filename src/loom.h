@@ -253,6 +253,12 @@ public:
 class AudioBufferProviderStub : public IAudioBufferProvider
 {
 public:
+    static AudioBufferProviderStub& GetInstance()
+    {
+        static AudioBufferProviderStub instance;
+        return instance;
+    }
+
     const char* GetName() const final override
     {
         return "IAudioBufferProvider stub";
@@ -458,7 +464,7 @@ private:
     }
 
     template <class T>
-    bool SamplesFormatMatches()
+    bool SampleFormatMatches()
     {
         AudioFormat sampleFormat = format & AudioFormat::SampleFormatMask;
         AudioFormat typeFormat = GetSampleTypeAudioFormat<T>();
@@ -678,6 +684,12 @@ public:
 class AudioDeviceManagerStub : public IAudioDeviceManager
 {
 public:
+    static AudioDeviceManagerStub& GetInstance()
+    {
+        static AudioDeviceManagerStub instance;
+        return instance;
+    }
+
     const char* GetName() const final override
     {
         return "IAudioDeviceManager stub";
@@ -746,6 +758,12 @@ public:
 class AudioDecoderStub : public IAudioDecoder
 {
 public:
+    static AudioDecoderStub& GetInstance()
+    {
+        static AudioDecoderStub instance;
+        return instance;
+    }
+
     const char* GetName() const final override
     {
         return "IAudioDecoder stub";
@@ -778,6 +796,12 @@ public:
 class AudioResamplerStub : public IAudioResampler
 {
 public:
+    static AudioResamplerStub& GetInstance()
+    {
+        static AudioResamplerStub instance;
+        return instance;
+    }
+
     const char* GetName() const final override
     {
         return "IAudioResampler stub";
@@ -805,6 +829,12 @@ public:
 class AudioChannelRemapperStub : public IAudioChannelRemapper
 {
 public:
+    static AudioChannelRemapperStub& GetInstance()
+    {
+        static AudioChannelRemapperStub instance;
+        return instance;
+    }
+
     const char* GetName() const final override
     {
         return "IAudioChannelRemapper stub";
@@ -1002,6 +1032,13 @@ protected:
 
 class AudioGraphStub : public IAudioGraph
 {
+public:
+    static AudioGraphStub& GetInstance()
+    {
+        static AudioGraphStub instance;
+        return instance;
+    }
+
     const char* GetName() const final override
     {
         return "IAudioGraph stub";
@@ -1039,122 +1076,13 @@ public:
         return *this;
     }
 
-    const AudioSystemConfig& GetConfig() const
-    {
-        return _Config;
-    }
-
-    IAudioGraph& GetGraph()
-    {
-        if (_Graph == nullptr)
-            return _GraphStub;
-        return *_Graph;
-    }
-
-    IAudioDecoder& GetDecoder()
-    {
-        if (_Decoder == nullptr)
-            return _DecoderStub;
-        return *_Decoder;
-    }
-
-    IAudioDeviceManager& GetDeviceManager()
-    {
-        if (_DeviceManager == nullptr)
-            return _DeviceManagerStub;
-        return *_DeviceManager;
-    }
-
-    IAudioResampler& GetResampler()
-    {
-        if (_Resampler == nullptr)
-            return _ResamplerStub;
-        return *_Resampler;
-    }
-
-    IAudioChannelRemapper& GetChannelRemapper()
-    {
-        if (_ChannelRemapper == nullptr)
-            return _ChannelRemapperStub;
-        return *_ChannelRemapper;
-    }
-
-    IAudioBufferProvider& GetBufferProvider()
-    {
-        if (_BufferProvider == nullptr)
-            return _BufferProviderStub;
-        return *_BufferProvider;
-    }
-
-protected:
-    void Configure(const AudioSystemConfig& config)
-    {
-        _Config = config;
-    }
-
-    // Once a service is set this way, IAudioSystem will manage its lifetime
-    Result SetService(IAudioService* service)
-    {
-        if (service == nullptr)
-            return Result::Nullptr;
-
-        switch(service->GetType())
-        {
-            case AudioServiceType::Graph:
-                if (_Graph != nullptr)
-                    _Graph->Shutdown();
-                _Graph.reset(static_cast<IAudioGraph*>(service));
-                return _Graph->Initialize();
-
-            case AudioServiceType::Decoder:
-                if (_Decoder != nullptr)
-                    _Decoder->Shutdown();
-                _Decoder.reset(static_cast<IAudioDecoder*>(service));
-                return _Decoder->Initialize();
-
-            case AudioServiceType::BufferProvider:
-                if (_BufferProvider != nullptr)
-                    _BufferProvider->Shutdown();
-                _BufferProvider.reset(static_cast<IAudioBufferProvider*>(service));
-                return _BufferProvider->Initialize();
-
-            case AudioServiceType::Resampler:
-                if (_Resampler != nullptr)
-                    _Resampler->Shutdown();
-                _Resampler.reset(static_cast<IAudioResampler*>(service));
-                return _Resampler->Initialize();
-
-            case AudioServiceType::ChannelRemapper:
-                if (_ChannelRemapper != nullptr)
-                    _ChannelRemapper->Shutdown();
-                _ChannelRemapper.reset(static_cast<IAudioChannelRemapper*>(service));
-                return _ChannelRemapper->Initialize();
-
-            case AudioServiceType::DeviceManager:
-                if (_DeviceManager != nullptr)
-                    _DeviceManager->Shutdown();
-                _DeviceManager.reset(static_cast<IAudioDeviceManager*>(service));
-                return _Graph->Initialize();
-
-            default:
-                return Result::InvalidEnumValue;
-        }
-    }
-
-    AudioGraphStub _GraphStub;
-    AudioDecoderStub _DecoderStub;
-    AudioDeviceManagerStub _DeviceManagerStub;
-    AudioResamplerStub _ResamplerStub;
-    AudioChannelRemapperStub _ChannelRemapperStub;
-    AudioBufferProviderStub _BufferProviderStub;
-
-    AudioSystemConfig _Config;
-    unique_ptr<IAudioGraph> _Graph;
-    unique_ptr<IAudioDecoder> _Decoder;
-    unique_ptr<IAudioDeviceManager> _DeviceManager;
-    unique_ptr<IAudioResampler> _Resampler;
-    unique_ptr<IAudioChannelRemapper> _ChannelRemapper;
-    unique_ptr<IAudioBufferProvider> _BufferProvider;
+    virtual const AudioSystemConfig& GetConfig() const = 0;
+    virtual IAudioGraph& GetGraphInterface() = 0;
+    virtual IAudioDecoder& GetDecoderInterface() const = 0;
+    virtual IAudioDeviceManager& GetDeviceManagerInterface() const = 0;
+    virtual IAudioResampler& GetResamplerInterface() const = 0;
+    virtual IAudioChannelRemapper& GetChannelRemapperInterface() const = 0;
+    virtual IAudioBufferProvider& GetBufferProviderInterface() const = 0;
 };
 
 //
@@ -1250,7 +1178,7 @@ public:
     template <class T>
     Result SetValue(const T& value)
     {
-        if constexpr (GetParameterType<T>() == _Type)
+        if (GetParameterType<T>() == _Type)
         {
             scoped_write_lock lock(_ValueAccessMutex);
             if (_HasLimits && (value > _Max || value < _Min))
@@ -1267,10 +1195,10 @@ public:
     template <class T>
     Result GetValue(T& value) const
     {
-        if constexpr (GetParameterType<T>() == _Type)
+        if (GetParameterType<T>() == _Type)
         {
             scoped_read_lock lock(_ValueAccessMutex);
-            value = _Value.Get<T>();
+            value = std::get<T>(_Value);
             return Result::Ok;
         }
         else
@@ -1290,7 +1218,7 @@ public:
     }
 
 private:
-    rw_mutex _ValueAccessMutex;
+    mutable rw_mutex _ValueAccessMutex;
     const string _Name;
     const AudioNodeParameterType _Type;
     ValueType _Value;
@@ -1300,17 +1228,17 @@ private:
 
 private:
     template <class T>
-    constexpr AudioNodeParameterType GetParameterType()
+    static constexpr AudioNodeParameterType GetParameterType()
     {
-        if constexpr (IsSame<T, u32>)
+        if constexpr (std::is_same_v<T, u32>)
             return AudioNodeParameterType::Unsigned32;
-        else if constexpr (IsSame<T, 3>)
+        else if constexpr (std::is_same_v<T, s32>)
             return AudioNodeParameterType::Signed32;
-        else if constexpr (IsSame<T, bool>)
+        else if constexpr (std::is_same_v<T, bool>)
             return AudioNodeParameterType::Boolean;
-        else if constexpr (IsSame<T, Vector3>)
+        else if constexpr (std::is_same_v<T, Vector3>)
             return AudioNodeParameterType::Vector3;
-        else if constexpr (IsSame<T, Transform>)
+        else if constexpr (std::is_same_v<T, Transform>)
             return AudioNodeParameterType::Transform;
         return AudioNodeParameterType::NotSupported;
     };
@@ -1334,6 +1262,7 @@ public:
         _Gain.GetValue<float>(gain);
         buffer.MultiplySamplesBy<float>(gain);
         destinationBuffer = buffer;
+        return Result::Ok;
     }
 
 private:
@@ -1378,16 +1307,16 @@ public:
     }
 
     template <class T, class... Args>
-    T* CreateNode(Args... args)
+    T* CreateNode(Args&&... args)
     {
-        static_assert(IsDerivedFrom<AudioNode, T>, "T must be derived from AudioNode");
+        static_assert(std::is_base_of_v<AudioNode, T>, "T must be derived from AudioNode");
 
         T* node = new T(std::forward<Args>(args)...);
         if (node != nullptr)
         {
             scoped_lock lock(_UpdateNodesMutex);
             AudioNode* nodeBase = static_cast<AudioNode*>(node);
-            if (_NodesToAdd.insert(nodeBase))
+            if (_NodesToAdd.insert(nodeBase).second)
             {
                 LOOM_LOG("Added node %s to AudioGraph.", node->GetName());
                 Result result = nodeBase->Initialize();
@@ -1408,7 +1337,7 @@ public:
     template <class T>
     Result RemoveNode(T* node)
     {
-        static_assert(IsDerivedFrom<AudioNode, T>, "T must be derived from AudioNode");
+        static_assert(std::is_base_of_v<AudioNode, T>, "T must be derived from AudioNode");
 
         scoped_lock lock(_UpdateNodesMutex);
         if (node == nullptr)
@@ -1419,25 +1348,42 @@ public:
             return Result::CannotFind;
     }
 
-    template <class T, class U>
-    Result Connect(T* leftNode, U* rightNode)
+    struct NodeConnection
     {
-        static_assert(IsDerivedFrom<AudioNode, T>, "Left node must be derived from AudioNode");
-        static_assert(IsDerivedFrom<AudioNode, U>, "Right node must be derived from AudioNode");
+        template <class T, class U>
+        NodeConnection(T* sourceNode, U* destinationNode)
+        {
+            static_assert(std::is_base_of_v<AudioNode, T>, "Source node must be derived from AudioNode");
+            static_assert(std::is_base_of_v<AudioNode, U>, "Destination node must be derived from AudioNode");
+            this->sourceNode = static_cast<AudioNode*>(sourceNode);
+            this->destinationNode = static_cast<AudioNode*>(destinationNode);
+        }
+        AudioNode* sourceNode;
+        AudioNode* destinationNode;
+    };
 
-        // TODO: this should be storing connection requests to a separate set and add the when updating the graph nodes
+    template <class T, class U>
+    Result Connect(T* sourceNode, U* destinationNode)
+    {
+        static_assert(std::is_base_of_v<AudioNode, T>, "Source node must be derived from AudioNode");
+        static_assert(std::is_base_of_v<AudioNode, U>, "Destination node must be derived from AudioNode");
 
-        return leftNode->ConnectOutput(rightNode);
+        _NodesToConnect.emplace_back(sourceNode, destinationNode);
+        return Result::Ok;
+
+        // TODO : make this happen in UpdateNodes
+        //return leftNode->AddOutput(destinationNode);
     }
 
     template <class T, class... NodeTypes>
     Result Chain(T* node, NodeTypes*... followingNodes)
     {
-        static_assert(IsDerivedFrom<AudioNode, T>, "T must be derived from AudioNode");
-        static_assert((IsDerivedFrom<AudioNode, NodeTypes> && ...), "All types must be derived from AudioNode");
+        static_assert(std::is_base_of_v<AudioNode, T>, "T must be derived from AudioNode");
+        static_assert((std::is_base_of_v<AudioNode, NodeTypes> && ...), "All types must be derived from AudioNode");
 
         if (node == nullptr || ((followingNodes == nullptr) || ...))
             return Result::Nullptr;
+        scoped_lock lock(_UpdateNodesMutex);
         return ChainNodesImpl(node, followingNodes...);
     }
 
@@ -1481,6 +1427,11 @@ private:
             _OutputNode = nullptr; // Just in case
             return Result::MissingOutputNode;
         }
+        for (const NodeConnection& connection : _NodesToConnect)
+            connection.sourceNode->AddOutput(connection.destinationNode);
+        _NodesToConnect.clear();
+
+        // Evaluate output node
         set<AudioNode*> outputNodes;
         ClearNodesVisitedFlag();
         for (AudioNode* node : _Nodes)
@@ -1568,6 +1519,7 @@ private:
     set<AudioNode*> _Nodes;
     set<AudioNode*> _NodesToAdd;
     set<AudioNode*> _NodesToRemove;
+    vector<NodeConnection> _NodesToConnect;
     AudioNode* _OutputNode;
     atomic<AudioGraphState> _State;
 };
@@ -1597,12 +1549,14 @@ private:
 class AudioSystem : public IAudioSystem
 {
 public:
-    using IAudioSystem::Configure;
-    using IAudioSystem::SetService;
+    AudioSystem()
+        : _Graph(GetInterface())
+    {
+    }
 
     Result Initialize()
     {
-        IAudioDeviceManager& deviceManager = GetDeviceManager();
+        IAudioDeviceManager& deviceManager = GetDeviceManagerInterface();
         Result result = Result::Unknown;
         result = deviceManager.Initialize();
         if (result != Result::Ok)
@@ -1619,7 +1573,12 @@ public:
         result = deviceManager.RegisterPlaybackCallback(PlaybackCallback, this);
     }
 
-    static void PlaybackCallback(AudioBuffer& outputBuffer, void* userData)
+    AudioGraph& GetGraph()
+    {
+        return _Graph;
+    }
+
+    static void PlaybackCallback(AudioBuffer& destinationBuffer, void* userData)
     {
         IAudioSystem* system = reinterpret_cast<IAudioSystem*>(userData);
         if (system == nullptr)
@@ -1628,8 +1587,8 @@ public:
             return;
         }
 
-        IAudioGraph& graph = system->GetGraph();
-        graph.Execute(outputBuffer);
+        IAudioGraph& graph = system->GetGraphInterface();
+        graph.Execute(destinationBuffer);
     }
 
     Result Shutdown();
@@ -1638,10 +1597,103 @@ public:
     AudioSource* CreateAudioSource(const AudioAsset* audioAsset, const AudioNode* inputNode);
     Result DestroyAudioSource(const AudioSource* audioSource);
 
+    const AudioSystemConfig& GetConfig() const override
+    {
+        return _Config;
+    }
+
+    IAudioGraph& GetGraphInterface()
+    {
+        return *static_cast<IAudioGraph*>(&_Graph);
+    }
+
+    IAudioDecoder& GetDecoderInterface() const override
+    {
+        if (_Decoder == nullptr)
+            return AudioDecoderStub::GetInstance();
+        return *_Decoder;
+    }
+
+    IAudioDeviceManager& GetDeviceManagerInterface() const override
+    {
+        if (_DeviceManager == nullptr)
+            return AudioDeviceManagerStub::GetInstance();
+        return *_DeviceManager;
+    }
+
+    IAudioResampler& GetResamplerInterface() const override
+    {
+        if (_Resampler == nullptr)
+            return AudioResamplerStub::GetInstance();
+        return *_Resampler;
+    }
+
+    IAudioChannelRemapper& GetChannelRemapperInterface() const override
+    {
+        if (_ChannelRemapper == nullptr)
+            return AudioChannelRemapperStub::GetInstance();
+        return *_ChannelRemapper;
+    }
+
+    IAudioBufferProvider& GetBufferProviderInterface() const override
+    {
+        if (_BufferProvider == nullptr)
+            return AudioBufferProviderStub::GetInstance();
+        return *_BufferProvider;
+    }
+
+    Result SetService(IAudioService* service)
+    {
+        if (service == nullptr)
+            return Result::Nullptr;
+
+        switch(service->GetType())
+        {
+            case AudioServiceType::Decoder:
+                if (_Decoder != nullptr)
+                    _Decoder->Shutdown();
+                _Decoder.reset(static_cast<IAudioDecoder*>(service));
+                return _Decoder->Initialize();
+
+            case AudioServiceType::BufferProvider:
+                if (_BufferProvider != nullptr)
+                    _BufferProvider->Shutdown();
+                _BufferProvider.reset(static_cast<IAudioBufferProvider*>(service));
+                return _BufferProvider->Initialize();
+
+            case AudioServiceType::Resampler:
+                if (_Resampler != nullptr)
+                    _Resampler->Shutdown();
+                _Resampler.reset(static_cast<IAudioResampler*>(service));
+                return _Resampler->Initialize();
+
+            case AudioServiceType::ChannelRemapper:
+                if (_ChannelRemapper != nullptr)
+                    _ChannelRemapper->Shutdown();
+                _ChannelRemapper.reset(static_cast<IAudioChannelRemapper*>(service));
+                return _ChannelRemapper->Initialize();
+
+            case AudioServiceType::DeviceManager:
+                if (_DeviceManager != nullptr)
+                    _DeviceManager->Shutdown();
+                _DeviceManager.reset(static_cast<IAudioDeviceManager*>(service));
+                return _DeviceManager->Initialize();
+
+            default:
+                return Result::InvalidEnumValue;
+        }
+    }
+
 private:
-    IAudioGraph* _AudioGraph;
     AudioSystemConfig _Config;
+    AudioGraph _Graph;
     map<AudioAsset*, set<AudioSource*>> _AudioSources;
+
+    unique_ptr<IAudioDecoder> _Decoder;
+    unique_ptr<IAudioDeviceManager> _DeviceManager;
+    unique_ptr<IAudioResampler> _Resampler;
+    unique_ptr<IAudioChannelRemapper> _ChannelRemapper;
+    unique_ptr<IAudioBufferProvider> _BufferProvider;
 };
 
 } // namespace Loom

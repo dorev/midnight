@@ -24,8 +24,7 @@ public:
 TEST_F(CompilationTests, AudioGraph)
 {
     AudioSystem system;
-
-    AudioGraph graph(system.GetInterface());
+    AudioGraph& graph = system.GetGraph();
     TestNode* input = graph.CreateNode<TestNode>(system.GetInterface());
     TestNode* gain = graph.CreateNode<TestNode>(system.GetInterface());
     TestNode* reverb = graph.CreateNode<TestNode>(system.GetInterface());
