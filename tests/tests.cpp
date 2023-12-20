@@ -24,7 +24,7 @@ TEST_F(CompilationTests, AudioGraph)
 {
     AudioSystem system;
 
-    AudioGraph graph(static_cast<IAudioSystem&>(system));
+    AudioGraph graph(system.GetInterface());
     TestNode* input = graph.CreateNode<TestNode>();
     TestNode* gain = graph.CreateNode<TestNode>();
     TestNode* reverb = graph.CreateNode<TestNode>();
