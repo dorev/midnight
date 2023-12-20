@@ -1,7 +1,7 @@
 #include "gtest/gtest.h"
-#include "midnight.h"
+#include "loom.h"
 
-using namespace Midnight;
+using namespace Loom;
 
 class CompilationTests : public ::testing::Test
 {
@@ -10,7 +10,8 @@ class CompilationTests : public ::testing::Test
 class TestNode : public AudioNode
 {
 public:
-    TestNode()
+    TestNode(IAudioSystem& system)
+        : AudioNode(system, "TestNode")
     {
     }
 
@@ -25,10 +26,10 @@ TEST_F(CompilationTests, AudioGraph)
     AudioSystem system;
 
     AudioGraph graph(system.GetInterface());
-    TestNode* input = graph.CreateNode<TestNode>();
-    TestNode* gain = graph.CreateNode<TestNode>();
-    TestNode* reverb = graph.CreateNode<TestNode>();
-    TestNode* output = graph.CreateNode<TestNode>();
+    TestNode* input = graph.CreateNode<TestNode>(system.GetInterface());
+    TestNode* gain = graph.CreateNode<TestNode>(system.GetInterface());
+    TestNode* reverb = graph.CreateNode<TestNode>(system.GetInterface());
+    TestNode* output = graph.CreateNode<TestNode>(system.GetInterface());
 
     Result error = graph.Chain(input, gain, reverb, output);
 }
