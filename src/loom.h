@@ -35,8 +35,8 @@ using shared_mutex = std::shared_mutex;
 using shared_lock = std::shared_lock<shared_mutex>;
 using unique_lock = std::unique_lock<shared_mutex>;
 
-template <class... T> using unique_ptr = std::unique_ptr<T...>;
-template <class... T> using shared_ptr = std::shared_ptr<T...>;
+template <class T> using unique_ptr = std::unique_ptr<T>;
+template <class T> using shared_ptr = std::shared_ptr<T>;
 template <typename T, typename... Args>
 auto make_unique(Args&&... args) -> unique_ptr<T>
 {
@@ -52,10 +52,10 @@ shared_ptr<T> shared_ptr_cast(const shared_ptr<U>& ptr) \
 {
     return std::static_pointer_cast<T>(ptr);
 }
-template <class... T> using atomic = std::atomic<T...>;
-template <class... T> using vector = std::vector<T...>;
-template <class... T> using set = std::set<T...>;
-template <class... T> using map = std::map<T...>;
+template <class T> using atomic = std::atomic<T>;
+template <class T> using vector = std::vector<T>;
+template <class T> using set = std::set<T>;
+template <class K, class V> using map = std::map<K, V>;
 template <class... T> using variant = std::variant<T...>;
 
 struct Vector3
