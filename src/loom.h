@@ -35,8 +35,8 @@ using shared_mutex = std::shared_mutex;
 using shared_lock = std::shared_lock<shared_mutex>;
 using unique_lock = std::unique_lock<shared_mutex>;
 
-template <class... T> using unique_ptr = std::unique_ptr<T...>;
-template <class... T> using shared_ptr = std::shared_ptr<T...>;
+template <class T> using unique_ptr = std::unique_ptr<T>;
+template <class T> using shared_ptr = std::shared_ptr<T>;
 template <typename T, typename... Args>
 auto make_unique(Args&&... args) -> unique_ptr<T>
 {
@@ -52,10 +52,10 @@ shared_ptr<T> shared_ptr_cast(const shared_ptr<U>& ptr) \
 {
     return std::static_pointer_cast<T>(ptr);
 }
-template <class... T> using atomic = std::atomic<T...>;
-template <class... T> using vector = std::vector<T...>;
-template <class... T> using set = std::set<T...>;
-template <class... T> using map = std::map<T...>;
+template <class T> using atomic = std::atomic<T>;
+template <class T> using vector = std::vector<T>;
+template <class T> using set = std::set<T>;
+template <class K, class V> using map = std::map<K, V>;
 template <class... T> using variant = std::variant<T...>;
 
 struct Vector3
@@ -93,8 +93,8 @@ struct Transform
 #define LOOM_LOG_WARNING(format, ...) printf("[WARNING] {%s}" format "\n", LOOM_FUNCTION, ##__VA_ARGS__);
 #define LOOM_LOG_ERROR(format, ...) printf("[ERROR] {%s}" format " [%s l.%d]\n", LOOM_FUNCTION, ##__VA_ARGS__, __FILE__, __LINE__);
 
-#define LOOM_LOG_BAD_RESULT(result) LOOM_LOG_WARNING("Returned %s (%d).", ResultToString(result), static_cast<u32>(result))
-#define LOOM_RETURN_RESULT(result) { LOOM_LOG_BAD_RESULT(result); return result; }
+#define LOOM_LOG_RESULT(result) LOOM_LOG_WARNING("Returned %s (%d).", ResultToString(result), static_cast<u32>(result))
+#define LOOM_RETURN_RESULT(result) { LOOM_LOG_RESULT(result); return result; }
 #define LOOM_CHECK_RESULT(result) if (result != Result::Ok) { LOOM_RETURN_RESULT(result); }
 
 #define LOOM_DEBUG_ASSERT(condition, format, ...) \
@@ -273,7 +273,7 @@ public:
 
     const char* GetName() const final override
     {
-        LOOM_LOG_BAD_RESULT(Result::CallingStub);
+        LOOM_LOG_RESULT(Result::CallingStub);
         return "IAudioBufferProvider stub";
     }
 
@@ -703,7 +703,7 @@ public:
 
     const char* GetName() const final override
     {
-        LOOM_LOG_BAD_RESULT(Result::CallingStub);
+        LOOM_LOG_RESULT(Result::CallingStub);
         return "IAudioDeviceManager stub";
     }
 
@@ -778,7 +778,7 @@ public:
 
     const char* GetName() const final override
     {
-        LOOM_LOG_BAD_RESULT(Result::CallingStub);
+        LOOM_LOG_RESULT(Result::CallingStub);
         return "IAudioDecoder stub";
     }
 
@@ -817,7 +817,7 @@ public:
 
     const char* GetName() const final override
     {
-        LOOM_LOG_BAD_RESULT(Result::CallingStub);
+        LOOM_LOG_RESULT(Result::CallingStub);
         return "IAudioResampler stub";
     }
 
@@ -851,7 +851,7 @@ public:
 
     const char* GetName() const final override
     {
-        LOOM_LOG_BAD_RESULT(Result::CallingStub);
+        LOOM_LOG_RESULT(Result::CallingStub);
         return "IAudioChannelRemapper stub";
     }
 
@@ -1055,7 +1055,7 @@ public:
 
     const char* GetName() const final override
     {
-        LOOM_LOG_BAD_RESULT(Result::CallingStub);
+        LOOM_LOG_RESULT(Result::CallingStub);
         return "IAudioGraph stub";
     }
 
@@ -1066,7 +1066,7 @@ public:
 
     AudioGraphState GetState() const final override
     {
-        LOOM_LOG_BAD_RESULT(Result::CallingStub);
+        LOOM_LOG_RESULT(Result::CallingStub);
         return AudioGraphState::Busy;
     }
 };
