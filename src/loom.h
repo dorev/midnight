@@ -1,22 +1,20 @@
 #pragma once
 
+#include <algorithm>
 #include <atomic>
+#include <cmath>
+#include <list>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <shared_mutex>
-#include <thread>
-#include <utility>
-#include <type_traits>
-#include <string>
 #include <sstream>
-#include <vector>
-#include <map>
-#include <list>
+#include <string>
+#include <thread>
+#include <type_traits>
+#include <utility>
 #include <variant>
-#include <algorithm>
-#include <memory>
-#include <cmath>
-
-#include "types.h"
+#include <vector>
 
 namespace Loom
 {
@@ -33,9 +31,9 @@ using s32 = int32_t;
 using string = std::string;
 using mutex = std::mutex;
 using scoped_lock = std::lock_guard<mutex>;
-using rw_mutex = std::shared_mutex;
-using scoped_read_lock = std::shared_lock<rw_mutex>;
-using scoped_write_lock = std::unique_lock<rw_mutex>;
+using shared_mutex = std::shared_mutex;
+using shared_lock = std::shared_lock<shared_mutex>;
+using unique_lock = std::unique_lock<shared_mutex>;
 template <class... T> using unique_ptr = std::unique_ptr<T...>;
 template <class... T> using shared_ptr = std::shared_ptr<T...>;
 template <class... T> using atomic = std::atomic<T...>;
@@ -79,6 +77,10 @@ struct Transform
 #define LOOM_LOG_WARNING(format, ...) printf("[WARNING] {%s}" format "\n", LOOM_FUNCTION, ##__VA_ARGS__);
 #define LOOM_LOG_ERROR(format, ...) printf("[ERROR] {%s}" format " [%s l.%d]\n", LOOM_FUNCTION, ##__VA_ARGS__, __FILE__, __LINE__);
 
+#define LOOM_LOG_BAD_RESULT(result) LOOM_LOG_WARNING("Returned %s (%d).", ResultToString(result), static_cast<u32>(result))
+#define LOOM_RETURN_RESULT(result) { LOOM_LOG_BAD_RESULT(result); return result; }
+#define LOOM_CHECK_RESULT(result) if (result != Result::Ok) { LOOM_RETURN_RESULT(result); }
+
 #define LOOM_DEBUG_ASSERT(condition, format, ...) \
     if (!(condition)) \
     { \
@@ -86,6 +88,7 @@ struct Transform
         LOOM_DEBUG_BREAK(); \
     }
 
+#define LOOM_UNUSED(variable) (void)(variable)
 ///////////////////////////////////////////////////////////////////////////////
 // Flags declaration helper
 ///////////////////////////////////////////////////////////////////////////////
@@ -128,7 +131,7 @@ enum class Result : u32
     EndOfFile,
     ExceedingLimits,
     NotReady,
-    AlreadyProcessing,
+    Busy,
     UnableToConnect,
     UnableToAddNode,
     MissingOutputNode,
@@ -163,19 +166,12 @@ const char* ResultToString(Result result)
         case Result::EndOfFile: return "End Of File";
         case Result::ExceedingLimits: return "Exceeding Limits";
         case Result::NotReady: return "Not Ready";
-        case Result::AlreadyProcessing: return "Already Working";
+        case Result::Busy: return "Already Working";
         case Result::UnableToConnect: return "Unable To Connect";
         case Result::Unknown: return "Unknown";
         default:
             return "No ResultToString conversion available";
     }
-}
-
-#define LOOM_CHECK_RESULT(result) \
-if (result != Result::Ok) \
-{ \
-    LOOM_LOG_WARNING("Returned %s (%d)", ResultToString(result), static_cast<u32>(result)); \
-    return result; \
 }
 
 //
@@ -261,17 +257,18 @@ public:
 
     const char* GetName() const final override
     {
+        LOOM_LOG_BAD_RESULT(Result::CallingStub);
         return "IAudioBufferProvider stub";
     }
 
-    Result AllocateBuffer(AudioBuffer& buffer) final override
+    Result AllocateBuffer(AudioBuffer&) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
-    Result ReleaseBuffer(AudioBuffer& buffer) final override
+    Result ReleaseBuffer(AudioBuffer&) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 };
 
@@ -358,9 +355,9 @@ public:
     Result CopyDataFrom(const AudioBuffer& other) const
     {
         if (data == nullptr || other.data == nullptr)
-            return Result::Nullptr;
+            LOOM_RETURN_RESULT(Result::NoData);
         if (_Capacity < other.size)
-            return Result::BufferCapacityMismatch;
+            LOOM_RETURN_RESULT(Result::BufferCapacityMismatch);
         memcpy(data, other.data, other.size);
         return Result::Ok;
     }
@@ -368,9 +365,9 @@ public:
     Result MixInBuffer(const AudioBuffer& other)
     {
         if (!FormatMatches(other))
-            return Result::BufferFormatMismatch;
-        AudioFormat format = other.format & AudioFormat::SampleFormatMask;
-        switch (format)
+            LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
+        AudioFormat sampleFormat = other.format & AudioFormat::SampleFormatMask;
+        switch (sampleFormat)
         {
             case AudioFormat::Int16:
                 return AddSamplesFrom<s16>(other);
@@ -379,8 +376,7 @@ public:
             case AudioFormat::Float32:
                 return AddSamplesFrom<float>(other);
             default:
-                LOOM_LOG_ERROR("Invalid buffer sample format.");
-                return Result::InvalidBufferSampleFormat;
+                LOOM_RETURN_RESULT(Result::InvalidBufferSampleFormat);
         }
     }
 
@@ -388,7 +384,7 @@ public:
     Result MultiplySamplesBy(T multiplier)
     {
         if (!SampleFormatMatches<T>())
-            return Result::BufferFormatMismatch;
+            LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
         T* samples = GetData<T>();
         u32 sampleCount = 0;
         Result result = GetSampleCount(sampleCount);
@@ -412,12 +408,11 @@ public:
                     sampleCount = size / sizeof (s32);
                     return Result::Ok;
                 default:
-                    LOOM_LOG_ERROR("Invalid buffer sample format.");
                     sampleCount = 0;
-                    return Result::InvalidBufferSampleFormat;
+                    LOOM_RETURN_RESULT(Result::InvalidBufferSampleFormat);
             }
         }
-        return Result::NoData;
+        LOOM_RETURN_RESULT(Result::NoData);
     }
 
     Result GetFrameCount(u32& frameCount) const
@@ -561,14 +556,14 @@ public:
     {
         u8* data = buffer.GetData();
         if (data == nullptr)
-            return Result::Nullptr;
+            LOOM_RETURN_RESULT(Result::Nullptr);
         Block* block = nullptr;
         u32 blockIndex = TailSentinel;
         if (!FindBlockIndex(data, block, blockIndex))
-            return Result::BlockOutOfRange;
+            LOOM_RETURN_RESULT(Result::BlockOutOfRange);
         u32 bufferIndex = 0;
         if(!FindBufferIndex(data, block, bufferIndex))
-            return Result::BufferOutOfRange;
+            LOOM_RETURN_RESULT(Result::BufferOutOfRange);
         u32 bufferPoolIndex = blockIndex * BlockSize + bufferIndex;
         u32 currentHead = TailSentinel;
         do
@@ -692,37 +687,38 @@ public:
 
     const char* GetName() const final override
     {
+        LOOM_LOG_BAD_RESULT(Result::CallingStub);
         return "IAudioDeviceManager stub";
     }
 
-    Result RegisterPlaybackCallback(AudioDevicePlaybackCallback callback, void* userData) final override
+    Result RegisterPlaybackCallback(AudioDevicePlaybackCallback, void*) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
-    Result EnumerateDevices(u32& deviceCount, const AudioDeviceDescription*& devices) final override
+    Result EnumerateDevices(u32&, const AudioDeviceDescription*&) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
-    Result SelectPlaybackDevice(const AudioDeviceDescription* device) final override
+    Result SelectPlaybackDevice(const AudioDeviceDescription*) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
     Result SelectDefaultPlaybackDevice() final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
     Result Start() final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
     Result Stop() final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
 };
@@ -751,8 +747,8 @@ public:
     {
         return AudioServiceType::Decoder;
     }
-    virtual Result CreateSampleBuffer(const string& filePath, AudioBuffer*& destination) = 0;
-    virtual Result OpenFile(const string& filePath, IAudioFile*& audioFile) = 0;
+    virtual Result CreateSampleBuffer(const char* filePath, AudioBuffer*& destination) = 0;
+    virtual Result OpenFile(const char* filePath, IAudioFile*& audioFile) = 0;
 };
 
 class AudioDecoderStub : public IAudioDecoder
@@ -766,17 +762,18 @@ public:
 
     const char* GetName() const final override
     {
+        LOOM_LOG_BAD_RESULT(Result::CallingStub);
         return "IAudioDecoder stub";
     }
 
-    virtual Result CreateSampleBuffer(const string& filePath, AudioBuffer*& destination) final override
+    virtual Result CreateSampleBuffer(const char*, AudioBuffer*&) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
-    virtual Result OpenFile(const string& filePath, IAudioFile*& audioFile) final override
+    virtual Result OpenFile(const char*, IAudioFile*&) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 };
 
@@ -790,7 +787,7 @@ public:
     {
         return AudioServiceType::Resampler;
     }
-    virtual Result Resample(const AudioBuffer* source, AudioBuffer*& destination) = 0;
+    virtual Result Resample(const AudioBuffer& source, AudioBuffer& destination) = 0;
 };
 
 class AudioResamplerStub : public IAudioResampler
@@ -804,12 +801,13 @@ public:
 
     const char* GetName() const final override
     {
+        LOOM_LOG_BAD_RESULT(Result::CallingStub);
         return "IAudioResampler stub";
     }
 
-    Result Resample(const AudioBuffer* source, AudioBuffer*& destination) final override
+    Result Resample(const AudioBuffer&, AudioBuffer&) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 };
 
@@ -837,12 +835,13 @@ public:
 
     const char* GetName() const final override
     {
+        LOOM_LOG_BAD_RESULT(Result::CallingStub);
         return "IAudioChannelRemapper stub";
     }
 
-    Result Remap(const AudioBuffer* source, AudioBuffer*& destination) final override
+    Result Remap(const AudioBuffer*, AudioBuffer*&) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 };
 
@@ -910,27 +909,27 @@ public:
     Result AddInput(AudioNode* node)
     {
         if (node == nullptr)
-            return Result::Nullptr;
+            LOOM_RETURN_RESULT(Result::Nullptr);
         if (_InputNodes.insert(node).second)
             return Result::Ok;
         else
-            return Result::UnableToConnect;
+            LOOM_RETURN_RESULT(Result::UnableToConnect);
     }
 
     Result AddOutput(AudioNode* node)
     {
         if (node ==  nullptr)
-            return Result::Nullptr;
+            LOOM_RETURN_RESULT(Result::Nullptr);
         if (_OutputNodes.insert(node).second)
             return Result::Ok;
         else
-            return Result::UnableToConnect;
+            LOOM_RETURN_RESULT(Result::UnableToConnect);
     }
 
     Result DisconnectNode(AudioNode* node)
     {
         if (node ==  nullptr)
-            return Result::Nullptr;
+            LOOM_RETURN_RESULT(Result::Nullptr);
         _InputNodes.erase(node);
         _OutputNodes.erase(node);
         return Result::Ok;
@@ -942,7 +941,7 @@ protected:
         _Name = name;
     }
 
-    AudioBuffer& GetBuffer()
+    AudioBuffer& GetNodeBuffer()
     {
         return _Buffer;
     }
@@ -952,27 +951,26 @@ protected:
         _Buffer.Release();
     }
 
-    Result Input(AudioBuffer& outputBuffer)
+    Result PullInputNodes(AudioBuffer& destinationBuffer)
     {
         if (_InputNodes.empty())
-            return Result::NoData;
+            LOOM_RETURN_RESULT(Result::NoData);
         for (auto itr = _InputNodes.begin(); itr != _InputNodes.end(); itr++)
         {
             AudioNode* node = *itr;
-            AudioBuffer inputBuffer;
-            node->Execute(inputBuffer);
+            node->Execute(destinationBuffer);
             if (itr == _InputNodes.begin())
             {
-                _Buffer = inputBuffer;
+                _Buffer = destinationBuffer;
             }
             else
             {
-                Result result = _Buffer.MixInBuffer(inputBuffer);
+                Result result = _Buffer.MixInBuffer(destinationBuffer);
                 LOOM_CHECK_RESULT(result);
             }
-            inputBuffer.Release();
+            destinationBuffer.Release();
         }
-        outputBuffer = _Buffer;
+        destinationBuffer = _Buffer;
         return Result::Ok;
     }
 
@@ -1041,16 +1039,18 @@ public:
 
     const char* GetName() const final override
     {
+        LOOM_LOG_BAD_RESULT(Result::CallingStub);
         return "IAudioGraph stub";
     }
 
-    Result Execute(AudioBuffer& destinationBuffer) final override
+    Result Execute(AudioBuffer&) final override
     {
-        return Result::CallingStub;
+        LOOM_RETURN_RESULT(Result::CallingStub);
     }
 
     AudioGraphState GetState() const final override
     {
+        LOOM_LOG_BAD_RESULT(Result::CallingStub);
         return AudioGraphState::Busy;
     }
 };
@@ -1180,15 +1180,15 @@ public:
     {
         if (GetParameterType<T>() == _Type)
         {
-            scoped_write_lock lock(_ValueAccessMutex);
+            unique_lock lock(_ValueAccessMutex);
             if (_HasLimits && (value > _Max || value < _Min))
-                return Result::ExceedingLimits;
+                std::clamp(value, std::get<T>(_Min), std::get<T>(_Max));
             _Value = value;
             return Result::Ok;
         }
         else
         {
-            return Result::WrongParameterType;
+            LOOM_RETURN_RESULT(Result::WrongParameterType);
         }
     }
 
@@ -1197,13 +1197,13 @@ public:
     {
         if (GetParameterType<T>() == _Type)
         {
-            scoped_read_lock lock(_ValueAccessMutex);
+            shared_lock lock(_ValueAccessMutex);
             value = std::get<T>(_Value);
             return Result::Ok;
         }
         else
         {
-            return Result::WrongParameterType;
+            LOOM_RETURN_RESULT(Result::WrongParameterType);
         }
     }
 
@@ -1218,7 +1218,7 @@ public:
     }
 
 private:
-    mutable rw_mutex _ValueAccessMutex;
+    mutable shared_mutex _ValueAccessMutex;
     const string _Name;
     const AudioNodeParameterType _Type;
     ValueType _Value;
@@ -1255,13 +1255,11 @@ public:
 
     Result Execute(AudioBuffer& destinationBuffer) override
     {
-        AudioBuffer& buffer = GetBuffer();
-        Result result = Input(buffer);
+        Result result = PullInputNodes(destinationBuffer);
         LOOM_CHECK_RESULT(result);
         float gain = 1.0f;
         _Gain.GetValue<float>(gain);
-        buffer.MultiplySamplesBy<float>(gain);
-        destinationBuffer = buffer;
+        destinationBuffer.MultiplySamplesBy<float>(gain);
         return Result::Ok;
     }
 
@@ -1293,17 +1291,11 @@ public:
     {
         AudioGraphState idleState = AudioGraphState::Idle;
         if (!_State.compare_exchange_strong(idleState, AudioGraphState::Busy))
-            return Result::AlreadyProcessing;
+            LOOM_RETURN_RESULT(Result::Busy);
         Result result = Result::Ok;
         result = UpdateNodes();
         LOOM_CHECK_RESULT(result);
-        result = ValidateGraph();
-        LOOM_CHECK_RESULT(result);
-
-
-
-
-        return Result::Ok;
+        return _OutputNode->Execute(destinationBuffer);
     }
 
     template <class T, class... Args>
@@ -1341,11 +1333,11 @@ public:
 
         scoped_lock lock(_UpdateNodesMutex);
         if (node == nullptr)
-            return Result::Nullptr;
+            LOOM_RETURN_RESULT(Result::Nullptr);
         if (_NodesToRemove.insert(static_cast<AudioNode*>(node)))
             return Result::Ok;
         else
-            return Result::CannotFind;
+            LOOM_RETURN_RESULT(Result::CannotFind);
     }
 
     struct NodeConnection
@@ -1370,9 +1362,6 @@ public:
 
         _NodesToConnect.emplace_back(sourceNode, destinationNode);
         return Result::Ok;
-
-        // TODO : make this happen in UpdateNodes
-        //return leftNode->AddOutput(destinationNode);
     }
 
     template <class T, class... NodeTypes>
@@ -1382,7 +1371,7 @@ public:
         static_assert((std::is_base_of_v<AudioNode, NodeTypes> && ...), "All types must be derived from AudioNode");
 
         if (node == nullptr || ((followingNodes == nullptr) || ...))
-            return Result::Nullptr;
+            LOOM_RETURN_RESULT(Result::Nullptr);
         scoped_lock lock(_UpdateNodesMutex);
         return ChainNodesImpl(node, followingNodes...);
     }
@@ -1425,7 +1414,7 @@ private:
         if (_Nodes.empty())
         {
             _OutputNode = nullptr; // Just in case
-            return Result::MissingOutputNode;
+            LOOM_RETURN_RESULT(Result::MissingOutputNode);
         }
         for (const NodeConnection& connection : _NodesToConnect)
             connection.sourceNode->AddOutput(connection.destinationNode);
@@ -1451,7 +1440,7 @@ private:
                 {
                     // This means the output node has an output node behind it...
                     // That's not normal!
-                    return Result::UnexpectedState;
+                    LOOM_RETURN_RESULT(Result::UnexpectedState);
                 }
                 else
                 {
@@ -1483,9 +1472,7 @@ private:
     {
         if (NodeWasVisited(node))
             return;
-
         VisitNode(node);
-
         set<AudioNode*>& visitedNodeOutputNodes = GetNodeOutputNodes(node);
         if (visitedNodeOutputNodes.empty())
         {
@@ -1504,24 +1491,15 @@ private:
             ClearNodeVisit(node);
     }
 
-    Result ValidateGraph() const
-    {
-        // TODO: Make sure that all path reach the output
-        // TODO: Make sure that there are no feedback loops
-        if (_OutputNode == nullptr)
-            return Result::MissingOutputNode;
-        return Result::Ok;
-    }
-
 private:
     IAudioSystem& _System;
-    mutex _UpdateNodesMutex;
+    atomic<AudioGraphState> _State;
+    AudioNode* _OutputNode;
     set<AudioNode*> _Nodes;
     set<AudioNode*> _NodesToAdd;
     set<AudioNode*> _NodesToRemove;
     vector<NodeConnection> _NodesToConnect;
-    AudioNode* _OutputNode;
-    atomic<AudioGraphState> _State;
+    mutex _UpdateNodesMutex;
 };
 
 class AudioSource : public AudioNode
@@ -1537,12 +1515,14 @@ public:
 private:
     virtual Result Execute(AudioBuffer& destinationBuffer)
     {
+        // make sure that the format specified in the destination buffer is respected!
         return Result::Ok;
     }
 
 private:
     u32 _Id;
     u32 _Priority;
+    bool _Virtual;
     AudioAsset* _AudioAsset;
 };
 
@@ -1559,17 +1539,9 @@ public:
         IAudioDeviceManager& deviceManager = GetDeviceManagerInterface();
         Result result = Result::Unknown;
         result = deviceManager.Initialize();
-        if (result != Result::Ok)
-        {
-            LOOM_LOG_ERROR("Failed to initialize device manager.");
-            return result;
-        }
+        LOOM_CHECK_RESULT(result);
         result = deviceManager.SelectDefaultPlaybackDevice();
-        if (result != Result::Ok)
-        {
-            LOOM_LOG_ERROR("Failed to select default device.");
-            return result;
-        }
+        LOOM_CHECK_RESULT(result);
         result = deviceManager.RegisterPlaybackCallback(PlaybackCallback, this);
     }
 
@@ -1586,7 +1558,6 @@ public:
             LOOM_LOG_ERROR("IAudioSystem not available in PlaybackCallback.");
             return;
         }
-
         IAudioGraph& graph = system->GetGraphInterface();
         graph.Execute(destinationBuffer);
     }
@@ -1645,7 +1616,7 @@ public:
     Result SetService(IAudioService* service)
     {
         if (service == nullptr)
-            return Result::Nullptr;
+            LOOM_RETURN_RESULT(Result::Nullptr);
 
         switch(service->GetType())
         {
@@ -1680,7 +1651,7 @@ public:
                 return _DeviceManager->Initialize();
 
             default:
-                return Result::InvalidEnumValue;
+                LOOM_RETURN_RESULT(Result::InvalidEnumValue);
         }
     }
 
@@ -1688,7 +1659,6 @@ private:
     AudioSystemConfig _Config;
     AudioGraph _Graph;
     map<AudioAsset*, set<AudioSource*>> _AudioSources;
-
     unique_ptr<IAudioDecoder> _Decoder;
     unique_ptr<IAudioDeviceManager> _DeviceManager;
     unique_ptr<IAudioResampler> _Resampler;

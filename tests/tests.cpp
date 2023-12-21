@@ -15,7 +15,7 @@ public:
     {
     }
 
-    Result Execute(AudioBuffer& destinationBuffer)
+    Result Execute(AudioBuffer&)
     {
         return Result::Ok;
     }
@@ -30,6 +30,7 @@ TEST_F(CompilationTests, AudioGraph)
     TestNode* reverb = graph.CreateNode<TestNode>(system.GetInterface());
     TestNode* output = graph.CreateNode<TestNode>(system.GetInterface());
 
-    Result error = graph.Chain(input, gain, reverb, output);
+    Result result = graph.Chain(input, gain, reverb, output);
+    LOOM_UNUSED(result);
 }
 
