@@ -34,8 +34,24 @@ using scoped_lock = std::lock_guard<mutex>;
 using shared_mutex = std::shared_mutex;
 using shared_lock = std::shared_lock<shared_mutex>;
 using unique_lock = std::unique_lock<shared_mutex>;
+
 template <class... T> using unique_ptr = std::unique_ptr<T...>;
 template <class... T> using shared_ptr = std::shared_ptr<T...>;
+template <typename T, typename... Args>
+auto make_unique(Args&&... args) -> unique_ptr<T>
+{
+    return std::make_unique<T>(std::forward<Args>(args)...);
+}
+template <typename T, typename... Args>
+auto make_shared(Args&&... args) -> shared_ptr<T>
+{
+    return std::make_shared<T>(std::forward<Args>(args)...);
+}
+template <typename T, typename U>
+shared_ptr<T> shared_ptr_cast(const shared_ptr<U>& ptr) \
+{
+    return std::static_pointer_cast<T>(ptr);
+}
 template <class... T> using atomic = std::atomic<T...>;
 template <class... T> using vector = std::vector<T...>;
 template <class... T> using set = std::set<T...>;
@@ -906,7 +922,7 @@ public:
         return _Name.c_str();
     }
 
-    Result AddInput(AudioNode* node)
+    Result AddInput(shared_ptr<AudioNode> node)
     {
         if (node == nullptr)
             LOOM_RETURN_RESULT(Result::Nullptr);
@@ -916,7 +932,7 @@ public:
             LOOM_RETURN_RESULT(Result::UnableToConnect);
     }
 
-    Result AddOutput(AudioNode* node)
+    Result AddOutput(shared_ptr<AudioNode> node)
     {
         if (node ==  nullptr)
             LOOM_RETURN_RESULT(Result::Nullptr);
@@ -926,7 +942,7 @@ public:
             LOOM_RETURN_RESULT(Result::UnableToConnect);
     }
 
-    Result DisconnectNode(AudioNode* node)
+    Result DisconnectNode(shared_ptr<AudioNode> node)
     {
         if (node ==  nullptr)
             LOOM_RETURN_RESULT(Result::Nullptr);
@@ -957,7 +973,7 @@ protected:
             LOOM_RETURN_RESULT(Result::NoData);
         for (auto itr = _InputNodes.begin(); itr != _InputNodes.end(); itr++)
         {
-            AudioNode* node = *itr;
+            shared_ptr<AudioNode> node = *itr;
             node->Execute(destinationBuffer);
             if (itr == _InputNodes.begin())
             {
@@ -981,8 +997,8 @@ private:
     atomic<AudioNodeState> _State;
     string _Name;
     AudioBuffer _Buffer;
-    set<AudioNode*> _InputNodes;
-    set<AudioNode*> _OutputNodes;
+    set<shared_ptr<AudioNode>> _InputNodes;
+    set<shared_ptr<AudioNode>> _OutputNodes;
 
     IAudioSystem& _System;
     bool _Visited;
@@ -1002,27 +1018,27 @@ public:
     virtual AudioGraphState GetState() const = 0;
 
 protected:
-    void VisitNode(AudioNode* node)
+    void VisitNode(shared_ptr<AudioNode> node)
     {
         node->_Visited = true;
     }
 
-    void ClearNodeVisit(AudioNode* node)
+    void ClearNodeVisit(shared_ptr<AudioNode> node)
     {
         node->_Visited = false;
     }
 
-    bool NodeWasVisited(AudioNode* node)
+    bool NodeWasVisited(shared_ptr<AudioNode> node)
     {
         return node->_Visited;
     }
 
-    set<AudioNode*>& GetNodeOutputNodes(AudioNode* node)
+    set<shared_ptr<AudioNode>>& GetNodeOutputNodes(shared_ptr<AudioNode> node)
     {
         return node->_OutputNodes;
     }
 
-    set<AudioNode*>& GetNodeInputNodes(AudioNode* node)
+    set<shared_ptr<AudioNode>>& GetNodeInputNodes(shared_ptr<AudioNode> node)
     {
         return node->_InputNodes;
     }
@@ -1299,15 +1315,15 @@ public:
     }
 
     template <class T, class... Args>
-    T* CreateNode(Args&&... args)
+    shared_ptr<T> CreateNode(Args&&... args)
     {
         static_assert(std::is_base_of_v<AudioNode, T>, "T must be derived from AudioNode");
 
-        T* node = new T(std::forward<Args>(args)...);
+        shared_ptr<T> node = make_shared<T>(std::forward<Args>(args)...);
         if (node != nullptr)
         {
+            shared_ptr<AudioNode> nodeBase = shared_ptr_cast<AudioNode>(node);
             scoped_lock lock(_UpdateNodesMutex);
-            AudioNode* nodeBase = static_cast<AudioNode*>(node);
             if (_NodesToAdd.insert(nodeBase).second)
             {
                 LOOM_LOG("Added node %s to AudioGraph.", node->GetName());
@@ -1319,7 +1335,6 @@ public:
             {
                 LOOM_LOG_WARNING("Unable to add node %s to AudioGraph. Shutting down and deallocating node.", node->GetName());
                 node->Shutdown();
-                delete node;
                 node = nullptr;
             }
         }
@@ -1334,7 +1349,7 @@ public:
         scoped_lock lock(_UpdateNodesMutex);
         if (node == nullptr)
             LOOM_RETURN_RESULT(Result::Nullptr);
-        if (_NodesToRemove.insert(static_cast<AudioNode*>(node)))
+        if (_NodesToRemove.insert(shared_ptr_cast<AudioNode>(node)))
             return Result::Ok;
         else
             LOOM_RETURN_RESULT(Result::CannotFind);
@@ -1343,19 +1358,19 @@ public:
     struct NodeConnection
     {
         template <class T, class U>
-        NodeConnection(T* sourceNode, U* destinationNode)
+        NodeConnection(shared_ptr<T>& sourceNode, shared_ptr<U>& destinationNode)
         {
             static_assert(std::is_base_of_v<AudioNode, T>, "Source node must be derived from AudioNode");
             static_assert(std::is_base_of_v<AudioNode, U>, "Destination node must be derived from AudioNode");
-            this->sourceNode = static_cast<AudioNode*>(sourceNode);
-            this->destinationNode = static_cast<AudioNode*>(destinationNode);
+            this->sourceNode = shared_ptr_cast<AudioNode>(sourceNode);
+            this->destinationNode = shared_ptr_cast<AudioNode>(destinationNode);
         }
-        AudioNode* sourceNode;
-        AudioNode* destinationNode;
+        shared_ptr<AudioNode> sourceNode;
+        shared_ptr<AudioNode> destinationNode;
     };
 
     template <class T, class U>
-    Result Connect(T* sourceNode, U* destinationNode)
+    Result Connect(shared_ptr<T>& sourceNode, shared_ptr<U>& destinationNode)
     {
         static_assert(std::is_base_of_v<AudioNode, T>, "Source node must be derived from AudioNode");
         static_assert(std::is_base_of_v<AudioNode, U>, "Destination node must be derived from AudioNode");
@@ -1365,7 +1380,7 @@ public:
     }
 
     template <class T, class... NodeTypes>
-    Result Chain(T* node, NodeTypes*... followingNodes)
+    Result Chain(shared_ptr<T>& node, shared_ptr<NodeTypes>&... followingNodes)
     {
         static_assert(std::is_base_of_v<AudioNode, T>, "T must be derived from AudioNode");
         static_assert((std::is_base_of_v<AudioNode, NodeTypes> && ...), "All types must be derived from AudioNode");
@@ -1378,7 +1393,7 @@ public:
 
 private:
     template <class T, class U, class... NodeTypes>
-    Result ChainNodesImpl(T* leftNode, U* rightNode, NodeTypes*... followingNodes)
+    Result ChainNodesImpl(shared_ptr<T>& leftNode, shared_ptr<U>& rightNode, shared_ptr<NodeTypes>&... followingNodes)
     {
         if constexpr (sizeof...(followingNodes) == 0)
         {
@@ -1393,22 +1408,22 @@ private:
     }
 
     template <class T>
-    Result ConnectNodesImpl(T* first)
+    Result ChainNodesImpl(shared_ptr<T>& first)
     {
+        LOOM_UNUSED(first);
         return Result::Ok;
     }
 
     Result UpdateNodes()
     {
         scoped_lock lock(_UpdateNodesMutex);
-        for (AudioNode* node : _NodesToRemove)
+        for (const shared_ptr<AudioNode>& node : _NodesToRemove)
         {
-            _Nodes.erase(node);
             node->Shutdown();
-            delete node;
+            _Nodes.erase(node);
         }
         _NodesToRemove.clear();
-        for (AudioNode* node : _NodesToAdd)
+        for (const shared_ptr<AudioNode>& node : _NodesToAdd)
             _Nodes.insert(node);
         _NodesToAdd.clear();
         if (_Nodes.empty())
@@ -1421,14 +1436,14 @@ private:
         _NodesToConnect.clear();
 
         // Evaluate output node
-        set<AudioNode*> outputNodes;
+        set<shared_ptr<AudioNode>> outputNodes;
         ClearNodesVisitedFlag();
-        for (AudioNode* node : _Nodes)
+        for (shared_ptr<AudioNode> node : _Nodes)
             SearchOutputNodes(node, outputNodes);
         bool nodesContainsOutputNode = _OutputNode != nullptr && _Nodes.find(_OutputNode) != _Nodes.end();
         if (outputNodes.size() == 1)
         {
-            AudioNode* node = *outputNodes.begin();
+            shared_ptr<AudioNode> node = *outputNodes.begin();
             if (node == _OutputNode)
             {
                 // The only leaf is the current output node
@@ -1459,45 +1474,45 @@ private:
             else
             {
                 // A new output node must be created
-                _OutputNode = static_cast<AudioNode*>(new MixingNode(_System));
+                _OutputNode = shared_ptr_cast<AudioNode>(make_shared<MixingNode>(_System));
                 _Nodes.insert(_OutputNode);
             }
-            for (AudioNode* node : outputNodes)
+            for (shared_ptr<AudioNode> node : outputNodes)
                 node->AddOutput(_OutputNode);
         }
         return Result::Ok;
     }
 
-    void SearchOutputNodes(AudioNode* node, set<AudioNode*>& outputNodesSearchResult)
+    void SearchOutputNodes(shared_ptr<AudioNode> node, set<shared_ptr<AudioNode>>& outputNodesSearchResult)
     {
         if (NodeWasVisited(node))
             return;
         VisitNode(node);
-        set<AudioNode*>& visitedNodeOutputNodes = GetNodeOutputNodes(node);
+        set<shared_ptr<AudioNode>>& visitedNodeOutputNodes = GetNodeOutputNodes(node);
         if (visitedNodeOutputNodes.empty())
         {
             outputNodesSearchResult.insert(node);
         }
         else
         {
-            for (AudioNode* outputNode : visitedNodeOutputNodes)
+            for (shared_ptr<AudioNode> outputNode : visitedNodeOutputNodes)
                 SearchOutputNodes(outputNode, outputNodesSearchResult);
         }
     }
 
     void ClearNodesVisitedFlag()
     {
-        for (AudioNode* node : _Nodes)
+        for (shared_ptr<AudioNode> node : _Nodes)
             ClearNodeVisit(node);
     }
 
 private:
     IAudioSystem& _System;
     atomic<AudioGraphState> _State;
-    AudioNode* _OutputNode;
-    set<AudioNode*> _Nodes;
-    set<AudioNode*> _NodesToAdd;
-    set<AudioNode*> _NodesToRemove;
+    shared_ptr<AudioNode> _OutputNode;
+    set<shared_ptr<AudioNode>> _Nodes;
+    set<shared_ptr<AudioNode>> _NodesToAdd;
+    set<shared_ptr<AudioNode>> _NodesToRemove;
     vector<NodeConnection> _NodesToConnect;
     mutex _UpdateNodesMutex;
 };
@@ -1516,6 +1531,7 @@ private:
     virtual Result Execute(AudioBuffer& destinationBuffer)
     {
         // make sure that the format specified in the destination buffer is respected!
+        LOOM_UNUSED(destinationBuffer);
         return Result::Ok;
     }
 
@@ -1565,7 +1581,7 @@ public:
     Result Shutdown();
     AudioAsset* LoadAudioAsset(const string& filePath);
     Result UnloadAudioAsset(const AudioAsset* audioAsset);
-    AudioSource* CreateAudioSource(const AudioAsset* audioAsset, const AudioNode* inputNode);
+    AudioSource* CreateAudioSource(const AudioAsset* audioAsset, const shared_ptr<AudioNode> inputNode);
     Result DestroyAudioSource(const AudioSource* audioSource);
 
     const AudioSystemConfig& GetConfig() const override
