@@ -1,4 +1,5 @@
-#include "loom/audioformat.h"
+#include "loom/audiobuffer.h"
+#include "loom/iaudiobufferprovider.h"
 
 namespace Loom
 {
@@ -17,7 +18,7 @@ AudioBuffer::AudioBuffer(IAudioBufferProvider* pool, u8* data, u32 capacity)
         _RefCount = new atomic<u32>(1);
 }
 
-virtual AudioBuffer::~AudioBuffer()
+AudioBuffer::~AudioBuffer()
 {
     DecrementRefCount();
 }
@@ -55,7 +56,7 @@ AudioBuffer& AudioBuffer::operator=(const AudioBuffer& other)
     return *this;
 }
 
-template <class T = u8>
+template <class T>
 T* AudioBuffer::GetData() const
 {
     return reinterpret_cast<T*>(data);
@@ -187,7 +188,7 @@ bool AudioBuffer::SampleFormatMatchHelper()
 }
 
 template <class T>
-constexpr AudioBuffer::AudioFormat SampleFormatFromType()
+constexpr AudioFormat AudioBuffer::SampleFormatFromType()
 {
     if constexpr (std::is_same_v<T, s16>)
         return AudioFormat::Int16;

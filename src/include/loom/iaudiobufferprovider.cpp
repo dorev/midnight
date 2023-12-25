@@ -8,6 +8,8 @@
 namespace Loom
 {
 
+class AudioBuffer;
+
 class IAudioBufferProvider : public IAudioSubsystem
 {
 public:

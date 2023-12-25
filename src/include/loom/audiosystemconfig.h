@@ -2,11 +2,13 @@
 
 #include "loom/defines.h"
 #include "loom/types.h"
-#include "loom/result.h"
 
 namespace Loom
 {
 
-// ...
+struct AudioSystemConfig
+{
+    u32 maxAudibleSources;
+};
 
 } // namespace Loom

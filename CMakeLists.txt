@@ -19,13 +19,13 @@ set(GTEST_ROOT ${CMAKE_SOURCE_DIR}/external/googletest)
 
 file(GLOB_RECURSE
     SOURCES
-    src/*.h
-    src/*.cpp
+    src/include/loom/*.h
+    src/include/loom/*.cpp
 )
 
-add_library(${PROJECT_NAME} STATIC)
+add_library(${PROJECT_NAME} STATIC ${SOURCES})
 
-target_include_directories(${PROJECT_NAME} static ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/include)
 target_include_directories(${PROJECT_NAME} INTERFACE ${GTEST_ROOT}/googletest)
 
 add_subdirectory(tests)

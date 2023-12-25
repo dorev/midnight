@@ -1,20 +1,23 @@
 #pragma once
 
-#include "defines.h"
-#include "types.h"
+#include "loom/defines.h"
+#include "loom/types.h"
+#include "loom/result.h"
+
+#include "loom/iaudiobufferprovider.h"
 
 namespace Loom
 {
 
 class AudioBuffer;
 
-template <u32 BlockSize = 32>
+template <u32 BlockSize>
 class AudioBufferPool : IAudioBufferProvider
 {
 public:
     AudioBufferPool(u32 bufferCapacity);
-    virtual Result AllocateBuffer(AudioBuffer& buffer);
-    virtual Result ReleaseBuffer(AudioBuffer& buffer);
+    Result AllocateBuffer(AudioBuffer& buffer) override;
+    Result ReleaseBuffer(AudioBuffer& buffer) override;
 
 private:
     static constexpr u32 TailSentinel = UINT32_MAX;
@@ -24,12 +27,11 @@ private:
     public:
         u32 buffers[BlockSize];
 
+    public:
         Block(u32 bufferSize);
-
+        ~Block();
         Block(const Block&) = delete;
         Block& operator=(const Block&) = delete;
-
-        ~Block();
 
         u8* GetBufferData(u32 index);
 

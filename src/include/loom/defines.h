@@ -1,8 +1,5 @@
 #pragma once
 
-namespace Loom
-{
-
 #if defined(_MSC_VER)
     #define LOOM_DEBUG_BREAK() __debugbreak()
     #define LOOM_FUNCTION __FUNCSIG__
@@ -56,6 +53,4 @@ inline EnumName& operator&=(EnumName& a, EnumName b) \
 } \
 enum class EnumName : UnderlyingType
 
-#define LOOM_FLAG(name, shift) name = 1 << shift
-
-} // namespace Loom
+#define LOOM_FLAG(name, shift) name = 1 << (shift)

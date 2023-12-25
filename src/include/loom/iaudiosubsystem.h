@@ -2,8 +2,7 @@
 
 #include "loom/defines.h"
 #include "loom/types.h"
-
-#include "loom/userheader.h"
+#include "loom/result.h"
 
 namespace Loom
 {
@@ -24,9 +23,11 @@ public:
     virtual AudioSubsystemType GetType() const = 0;
     virtual const char* GetName() const = 0;
 
+    // TODO: add IAudioSystem& to this constructor
     IAudioSubsystem()
     {
     }
+
     IAudioSubsystem(const IAudioSubsystem&) = delete;
     IAudioSubsystem& operator=(const IAudioSubsystem&) = delete;
 

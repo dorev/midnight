@@ -34,36 +34,8 @@ LOOM_DECLARE_FLAG_ENUM(AudioFormat, u32)
     Invalid = UINT32_MAX
 };
 
-u32 ParseFormatChannels(AudioFormat audioFormat)
-{
-    AudioFormat channels = (audioFormat & AudioFormat::ChannelsMask) << AudioFormat::ChannelsOffset;
-    return static_cast<u32>(channels);
-}
-
-AudioFormat ParseSampleFormat(AudioFormat audioFormat)
-{
-    AudioFormat samplingRateFormat = audioFormat & AudioFormat::SampleFormatMask;
-    switch(samplingRateFormat)
-    {
-        case AudioFormat::Int16:
-        case AudioFormat::Int32:
-        case AudioFormat::Float32:
-            return samplingRateFormat;
-        default:
-            return AudioFormat::Invalid;
-    }
-}
-
-u32 ParseSamplingRate(AudioFormat audioFormat)
-{
-    AudioFormat samplingRate = (audioFormat & AudioFormat::SamplingRateMask) << AudioFormat::SamplingRateOffset;
-    switch(samplingRate)
-    {
-        case AudioFormat::Hz44100: return 44100;
-        case AudioFormat::Hz48000: return 48000;
-        default:
-            return 0;
-    }
-}
+u32 ParseFormatChannels(AudioFormat audioFormat);
+AudioFormat ParseSampleFormat(AudioFormat audioFormat);
+u32 ParseSamplingRate(AudioFormat audioFormat);
 
 } // namespace Loom
