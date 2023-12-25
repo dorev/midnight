@@ -24,8 +24,6 @@ file(GLOB_RECURSE
 )
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
-
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/src/include)
-target_include_directories(${PROJECT_NAME} INTERFACE ${GTEST_ROOT}/googletest)
 
 add_subdirectory(tests)

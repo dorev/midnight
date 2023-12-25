@@ -17,32 +17,25 @@ enum class AudioSubsystemType
     BufferProvider
 };
 
+class IAudioSystem;
+
 class IAudioSubsystem
 {
 public:
     virtual AudioSubsystemType GetType() const = 0;
     virtual const char* GetName() const = 0;
-
-    // TODO: add IAudioSystem& to this constructor
-    IAudioSubsystem()
-    {
-    }
-
+    IAudioSubsystem(IAudioSystem& system);
     IAudioSubsystem(const IAudioSubsystem&) = delete;
     IAudioSubsystem& operator=(const IAudioSubsystem&) = delete;
+    virtual ~IAudioSubsystem();
+    virtual Result Initialize();
+    virtual void Shutdown();
 
-    virtual ~IAudioSubsystem()
-    {
-    }
+protected:
+    IAudioSystem& GetSystemInterface();
 
-    virtual Result Initialize()
-    {
-        return Result::Ok;
-    }
-
-    virtual void Shutdown()
-    {
-    }
+private:
+    IAudioSystem& _System;
 };
 
 } // namespace Loom

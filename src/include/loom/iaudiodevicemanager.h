@@ -1,8 +1,5 @@
 #pragma once
 
-#include "loom/defines.h"
-#include "loom/types.h"
-
 #include "loom/iaudiosubsystem.h"
 
 namespace Loom
@@ -29,6 +26,7 @@ using AudioDevicePlaybackCallback = void(*)(AudioBuffer& outputBuffer, void* use
 class IAudioDeviceManager : public IAudioSubsystem
 {
 public:
+    IAudioDeviceManager(IAudioSystem& system);
     AudioSubsystemType GetType() const final override
     {
         return AudioSubsystemType::DeviceManager;
@@ -45,47 +43,15 @@ public:
 class AudioDeviceManagerStub : public IAudioDeviceManager
 {
 public:
-    static AudioDeviceManagerStub& GetInstance()
-    {
-        static AudioDeviceManagerStub instance;
-        return instance;
-    }
-
-    const char* GetName() const final override
-    {
-        LOOM_LOG_RESULT(Result::CallingStub);
-        return "IAudioDeviceManager stub";
-    }
-
-    Result RegisterPlaybackCallback(AudioDevicePlaybackCallback, void*) final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
-
-    Result EnumerateDevices(u32&, const AudioDeviceDescription*&) final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
-
-    Result SelectPlaybackDevice(const AudioDeviceDescription*) final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
-
-    Result SelectDefaultPlaybackDevice() final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
-
-    Result Start() final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
-
-    Result Stop() final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
+    AudioDeviceManagerStub();
+    static AudioDeviceManagerStub& GetInstance();
+    const char* GetName() const final override;
+    Result RegisterPlaybackCallback(AudioDevicePlaybackCallback, void*) final override;
+    Result EnumerateDevices(u32&, const AudioDeviceDescription*&) final override;
+    Result SelectPlaybackDevice(const AudioDeviceDescription*) final override;
+    Result SelectDefaultPlaybackDevice() final override;
+    Result Start() final override;
+    Result Stop() final override;
 };
 
 } // namespace Loom

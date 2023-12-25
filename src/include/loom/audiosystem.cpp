@@ -5,7 +5,7 @@ namespace Loom
 {
 
 AudioSystem::AudioSystem()
-    : _Graph(new AudioGraph(GetInterface()))
+    : _Graph(GetInterface())
 {
 }
 

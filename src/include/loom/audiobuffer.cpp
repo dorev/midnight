@@ -56,12 +56,6 @@ AudioBuffer& AudioBuffer::operator=(const AudioBuffer& other)
     return *this;
 }
 
-template <class T>
-T* AudioBuffer::GetData() const
-{
-    return reinterpret_cast<T*>(data);
-}
-
 void AudioBuffer::Release()
 {
     if (_Pool == nullptr)
@@ -100,22 +94,6 @@ Result AudioBuffer::AddSamplesFrom(const AudioBuffer& other)
     }
 }
 
-template <class T>
-Result AudioBuffer::MultiplySamplesBy(T multiplier)
-{
-    if (multiplier == 1)
-        return Result::Ok;
-    if (!SampleFormatMatchHelper<T>())
-        LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
-    T* samples = GetData<T>();
-    u32 sampleCount = 0;
-    Result result = GetSampleCount(sampleCount);
-    LOOM_CHECK_RESULT(result);
-    for (u32 i = 0; i < sampleCount; i++)
-        samples[i] *= multiplier;
-    return Result::Ok;
-}
-
 Result AudioBuffer::GetSampleCount(u32& sampleCount) const
 {
     if (data != nullptr)
@@ -152,19 +130,6 @@ bool AudioBuffer::FormatMatches(const AudioBuffer& other) const
         && channels == other.channels;
 }
 
-template <class T>
-Result AudioBuffer::InternalAddSamplesFrom(const AudioBuffer& other)
-{
-    T* source = other.GetData<T>();
-    T* destination = GetData<T>();
-    u32 sampleCount = 0;
-    Result result = GetSampleCount(sampleCount);
-    LOOM_CHECK_RESULT(result);
-    for (u32 i = 0; i < sampleCount; i++)
-        destination[i] += source[i];
-    return Result::Ok;
-}
-
 void AudioBuffer::DecrementRefCount()
 {
     if (_Pool != nullptr
@@ -177,27 +142,6 @@ void AudioBuffer::DecrementRefCount()
         delete _RefCount;
         _RefCount = nullptr;
     }
-}
-
-template <class T>
-bool AudioBuffer::SampleFormatMatchHelper()
-{
-    AudioFormat sampleFormat = format & AudioFormat::SampleFormatMask;
-    AudioFormat typeFormat = SampleFormatFromType<T>();
-    return sampleFormat == typeFormat;
-}
-
-template <class T>
-constexpr AudioFormat AudioBuffer::SampleFormatFromType()
-{
-    if constexpr (std::is_same_v<T, s16>)
-        return AudioFormat::Int16;
-    else if constexpr (std::is_same_v<T, s32>)
-        return AudioFormat::Int32;
-    else if constexpr (std::is_same_v<T, float>)
-        return AudioFormat::Float32;
-    else
-        return AudioFormat::Invalid;
 }
 
 } // namespace Loom

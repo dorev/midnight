@@ -1,51 +1,44 @@
-#pragma once
-
-#include "loom/defines.h"
-#include "loom/types.h"
-
-#include "loom/iaudiosubsystem.h"
+#include "loom/iaudiobufferprovider.h"
+#include "loom/iaudiosystem.h"
 
 namespace Loom
 {
 
-class AudioBuffer;
-
-class IAudioBufferProvider : public IAudioSubsystem
+IAudioBufferProvider::IAudioBufferProvider(IAudioSystem& system)
+    : IAudioSubsystem(system)
 {
-public:
-    AudioSubsystemType GetType() const final override
-    {
-        return AudioSubsystemType::BufferProvider;
-    }
+}
 
-    virtual Result AllocateBuffer(AudioBuffer& buffer) = 0;
-    virtual Result ReleaseBuffer(AudioBuffer& buffer) = 0;
-};
-
-class AudioBufferProviderStub : public IAudioBufferProvider
+AudioSubsystemType IAudioBufferProvider::GetType() const
 {
-public:
-    static AudioBufferProviderStub& GetInstance()
-    {
-        static AudioBufferProviderStub instance;
-        return instance;
-    }
+    return AudioSubsystemType::BufferProvider;
+}
 
-    const char* GetName() const final override
-    {
-        LOOM_LOG_RESULT(Result::CallingStub);
-        return "IAudioBufferProvider stub";
-    }
+AudioBufferProviderStub::AudioBufferProviderStub()
+    : IAudioBufferProvider(IAudioSystem::GetStub())
+{
+}
 
-    Result AllocateBuffer(AudioBuffer&) final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
+AudioBufferProviderStub& AudioBufferProviderStub::GetInstance()
+{
+    static AudioBufferProviderStub instance;
+    return instance;
+}
 
-    Result ReleaseBuffer(AudioBuffer&) final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
-};
+const char* AudioBufferProviderStub::GetName() const
+{
+    LOOM_LOG_RESULT(Result::CallingStub);
+    return "IAudioBufferProvider stub";
+}
+
+Result AudioBufferProviderStub::AllocateBuffer(AudioBuffer&)
+{
+    LOOM_RETURN_RESULT(Result::CallingStub);
+}
+
+Result AudioBufferProviderStub::ReleaseBuffer(AudioBuffer&)
+{
+    LOOM_RETURN_RESULT(Result::CallingStub);
+}
 
 } // namespace Loom

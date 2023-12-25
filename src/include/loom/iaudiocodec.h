@@ -1,8 +1,5 @@
 #pragma once
 
-#include "loom/defines.h"
-#include "loom/types.h"
-
 #include "loom/iaudiosubsystem.h"
 
 namespace Loom
@@ -27,11 +24,8 @@ public:
 class IAudioCodec : public IAudioSubsystem
 {
 public:
-    AudioSubsystemType GetType() const final override
-    {
-        return AudioSubsystemType::Decoder;
-    }
-
+    IAudioCodec(IAudioSystem& system);
+    AudioSubsystemType GetType() const final override;
     virtual Result CreateSampleBuffer(const char* filePath, AudioBuffer& destination) = 0;
     virtual Result OpenFile(const char* filePath, IAudioFile& audioFile) = 0;
 };
@@ -39,27 +33,11 @@ public:
 class AudioCodecStub : public IAudioCodec
 {
 public:
-    static AudioCodecStub& GetInstance()
-    {
-        static AudioCodecStub instance;
-        return instance;
-    }
-
-    const char* GetName() const final override
-    {
-        LOOM_LOG_RESULT(Result::CallingStub);
-        return "IAudioCodec stub";
-    }
-
-    virtual Result CreateSampleBuffer(const char*, AudioBuffer&) final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
-
-    virtual Result OpenFile(const char*, IAudioFile&) final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
+    AudioCodecStub();
+    static AudioCodecStub& GetInstance();
+    const char* GetName() const final override;
+    virtual Result CreateSampleBuffer(const char*, AudioBuffer&) final override;
+    virtual Result OpenFile(const char*, IAudioFile&) final override;
 };
 
 

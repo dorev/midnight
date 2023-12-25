@@ -17,8 +17,9 @@ public:
     Result Play(float fadeIn = 0.0f);
     Result Pause(float fadeOut = 0.05f);
     Result Stop(float fadeOut = 0.05f);
-    Result Seek(u32 position);
-    u32 framePosition;
+    Result Seek(u32 sample);
+    Result Seek(float seconds);
+    bool IsVirtual();
     bool loop;
 
 private:

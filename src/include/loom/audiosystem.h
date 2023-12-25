@@ -4,10 +4,10 @@
 #include "loom/types.h"
 #include "loom/result.h"
 
-#include "loom/iaudiosystem.h"
+#include "loom/audiograph.h"
 #include "loom/audiosystemconfig.h"
+#include "loom/iaudiosystem.h"
 #include "loom/iaudiobufferprovider.h"
-#include "loom/iaudiograph.h"
 #include "loom/iaudiodevicemanager.h"
 #include "loom/iaudiocodec.h"
 #include "loom/iaudioresampler.h"
@@ -42,12 +42,10 @@ public:
 
     IAudioGraph& GetGraphInterface()
     {
-        if (_Graph == nullptr)
-            return AudioGraphStub::GetInstance();
-        return *_Graph;
+        return static_cast<IAudioGraph&>(_Graph);
     }
 
-    IAudioCodec& GetDecoderInterface() const override
+    IAudioCodec& GetCodecInterface() const override
     {
         if (_Decoder == nullptr)
             return AudioCodecStub::GetInstance();
@@ -87,7 +85,7 @@ public:
 private:
     AudioSystemConfig _Config;
     map<shared_ptr<AudioAsset>, set<shared_ptr<AudioSource>>> _AudioSources;
-    unique_ptr<IAudioGraph> _Graph;
+    AudioGraph _Graph;
     unique_ptr<IAudioCodec> _Decoder;
     unique_ptr<IAudioDeviceManager> _DeviceManager;
     unique_ptr<IAudioResampler> _Resampler;

@@ -1,8 +1,5 @@
 #pragma once
 
-#include "loom/defines.h"
-#include "loom/types.h"
-
 #include "loom/iaudiosubsystem.h"
 
 namespace Loom
@@ -13,6 +10,11 @@ class AudioBuffer;
 class IAudioChannelRemapper : public IAudioSubsystem
 {
 public:
+    IAudioChannelRemapper(IAudioSystem& system)
+        : IAudioSubsystem(system)
+    {
+    }
+
     AudioSubsystemType GetType() const final override
     {
         return AudioSubsystemType::ChannelRemapper;
@@ -24,6 +26,11 @@ public:
 class AudioChannelRemapperStub : public IAudioChannelRemapper
 {
 public:
+    AudioChannelRemapperStub()
+        : IAudioChannelRemapper(IAudioSystem::GetStub())
+    {
+    }
+
     static AudioChannelRemapperStub& GetInstance()
     {
         static AudioChannelRemapperStub instance;

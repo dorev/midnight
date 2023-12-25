@@ -27,26 +27,73 @@ public:
     virtual ~AudioBuffer();
 
     template <class T = u8>
-    T* GetData() const;
+    T* GetData() const
+    {
+        return reinterpret_cast<T*>(data);
+    }
+
     void Release();
 
     Result GetSampleCount(u32& sampleCount) const;
     Result GetFrameCount(u32& frameCount) const;
     bool FormatMatches(const AudioBuffer& other) const;
 
-    template <class T>
-    Result MultiplySamplesBy(T multiplier);
+
     Result AddSamplesFrom(const AudioBuffer& other);
     Result CopyDataFrom(const AudioBuffer& other) const;
 
+    template <class T>
+    Result MultiplySamplesBy(T multiplier)
+    {
+        if (multiplier == 1)
+            return Result::Ok;
+        if (!SampleFormatMatchHelper<T>())
+            LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
+        T* samples = GetData<T>();
+        u32 sampleCount = 0;
+        Result result = GetSampleCount(sampleCount);
+        LOOM_CHECK_RESULT(result);
+        for (u32 i = 0; i < sampleCount; i++)
+            samples[i] *= multiplier;
+        return Result::Ok;
+    }
+
 private:
     void DecrementRefCount();
+
     template <class T>
-    Result InternalAddSamplesFrom(const AudioBuffer& other);
+    Result InternalAddSamplesFrom(const AudioBuffer& other)
+    {
+        T* source = other.GetData<T>();
+        T* destination = GetData<T>();
+        u32 sampleCount = 0;
+        Result result = GetSampleCount(sampleCount);
+        LOOM_CHECK_RESULT(result);
+        for (u32 i = 0; i < sampleCount; i++)
+            destination[i] += source[i];
+        return Result::Ok;
+    }
+
     template <class T>
-    bool SampleFormatMatchHelper();
+    bool SampleFormatMatchHelper()
+    {
+        AudioFormat sampleFormat = format & AudioFormat::SampleFormatMask;
+        AudioFormat typeFormat = SampleFormatFromType<T>();
+        return sampleFormat == typeFormat;
+    }
+
     template <class T>
-    constexpr AudioFormat SampleFormatFromType();
+    constexpr AudioFormat SampleFormatFromType()
+    {
+        if constexpr (std::is_same_v<T, s16>)
+            return AudioFormat::Int16;
+        else if constexpr (std::is_same_v<T, s32>)
+            return AudioFormat::Int32;
+        else if constexpr (std::is_same_v<T, float>)
+            return AudioFormat::Float32;
+        else
+            return AudioFormat::Invalid;
+    }
 
 private:
     IAudioBufferProvider* _Pool;

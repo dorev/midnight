@@ -1,9 +1,5 @@
 #pragma once
 
-#include "loom/defines.h"
-#include "loom/types.h"
-#include "loom/result.h"
-
 #include "loom/iaudiosubsystem.h"
 
 namespace Loom
@@ -21,11 +17,8 @@ class AudioNode;
 class IAudioGraph : public IAudioSubsystem
 {
 public:
-    AudioSubsystemType GetType() const final override
-    {
-        return AudioSubsystemType::Graph;
-    }
-
+    IAudioGraph(IAudioSystem& system);
+    AudioSubsystemType GetType() const final override;
     virtual Result Execute(AudioBuffer& outputBuffer) = 0;
     virtual AudioGraphState GetState() const = 0;
 
@@ -40,28 +33,11 @@ protected:
 class AudioGraphStub : public IAudioGraph
 {
 public:
-    static AudioGraphStub& GetInstance()
-    {
-        static AudioGraphStub instance;
-        return instance;
-    }
-
-    const char* GetName() const final override
-    {
-        LOOM_LOG_RESULT(Result::CallingStub);
-        return "IAudioGraph stub";
-    }
-
-    Result Execute(AudioBuffer&) final override
-    {
-        LOOM_RETURN_RESULT(Result::CallingStub);
-    }
-
-    AudioGraphState GetState() const final override
-    {
-        LOOM_LOG_RESULT(Result::CallingStub);
-        return AudioGraphState::Busy;
-    }
+    AudioGraphStub();
+    static AudioGraphStub& GetInstance();
+    const char* GetName() const final override;
+    Result Execute(AudioBuffer&) final override;
+    AudioGraphState GetState() const final override;
 };
 
 } // namespace Loom
