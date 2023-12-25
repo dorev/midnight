@@ -23,9 +23,9 @@ file(GLOB_RECURSE
     src/*.cpp
 )
 
-add_library(${PROJECT_NAME} INTERFACE)
+add_library(${PROJECT_NAME} STATIC)
 
-target_include_directories(${PROJECT_NAME} INTERFACE ${CMAKE_SOURCE_DIR}/src)
+target_include_directories(${PROJECT_NAME} static ${CMAKE_SOURCE_DIR}/src)
 target_include_directories(${PROJECT_NAME} INTERFACE ${GTEST_ROOT}/googletest)
 
 add_subdirectory(tests)

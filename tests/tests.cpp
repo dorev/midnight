@@ -1,5 +1,5 @@
 #include "gtest/gtest.h"
-#include "loom.h"
+#include "loom/loom_alld.h"
 
 using namespace Loom;
 
