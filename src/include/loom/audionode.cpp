@@ -1,5 +1,5 @@
 #include "loom/audionode.h"
-#include "loom/iaudiosystem.h"
+#include "loom/interfaces/iaudiosystem.h"
 
 namespace Loom
 {

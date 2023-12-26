@@ -1,5 +1,5 @@
-#include "loom/iaudiobufferprovider.h"
-#include "loom/iaudiosystem.h"
+#include "loom/interfaces/iaudiobufferprovider.h"
+#include "loom/interfaces/iaudiosystem.h"
 
 namespace Loom
 {

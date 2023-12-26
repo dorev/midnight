@@ -1,5 +1,5 @@
-#include "loom/iaudiochannelremapper.h"
-#include "loom/iaudiosystem.h"
+#include "loom/interfaces/iaudiochannelremapper.h"
+#include "loom/interfaces/iaudiosystem.h"
 
 namespace Loom
 {

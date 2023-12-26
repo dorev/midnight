@@ -1,11 +1,11 @@
 #include "loom/audiosystem.h"
-#include "loom/iaudiosystem.h"
-#include "loom/iaudiograph.h"
-#include "loom/iaudiocodec.h"
-#include "loom/iaudioresampler.h"
-#include "loom/iaudiobufferprovider.h"
-#include "loom/iaudiodevicemanager.h"
-#include "loom/iaudiochannelremapper.h"
+#include "loom/interfaces/iaudiosystem.h"
+#include "loom/interfaces/iaudiograph.h"
+#include "loom/interfaces/iaudiocodec.h"
+#include "loom/interfaces/iaudioresampler.h"
+#include "loom/interfaces/iaudiobufferprovider.h"
+#include "loom/interfaces/iaudiodevicemanager.h"
+#include "loom/interfaces/iaudiochannelremapper.h"
 
 namespace Loom
 {

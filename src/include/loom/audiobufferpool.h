@@ -4,7 +4,7 @@
 #include "loom/types.h"
 #include "loom/result.h"
 
-#include "loom/iaudiobufferprovider.h"
+#include "loom/interfaces/iaudiobufferprovider.h"
 
 namespace Loom
 {
