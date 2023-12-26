@@ -1,4 +1,4 @@
-#include "loom/audionode.h"
+#include "loom/nodes/audionode.h"
 #include "loom/interfaces/iaudiosystem.h"
 
 namespace Loom
@@ -66,6 +66,11 @@ Result AudioNode::Disconnect(AudioNodePtr node)
 AudioBuffer& AudioNode::GetBuffer()
 {
     return _Buffer;
+}
+
+IAudioSystem& AudioNode::GetSystem()
+{
+    return _System;
 }
 
 void AudioNode::ReleaseBuffer()

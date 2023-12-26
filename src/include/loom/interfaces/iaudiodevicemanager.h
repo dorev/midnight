@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/interfaces/iaudiosubsystem.h"
+#include "loom/audiobuffer.h"
 
 namespace Loom
 {
@@ -14,9 +15,8 @@ enum class AudioDeviceType
 struct AudioDeviceDescription
 {
     string name;
-    u32 channels;
-    u32 sampleRate;
     bool defaultDevice;
+    AudioBuffer bufferTemplate;
     AudioDeviceType deviceType;
 };
 

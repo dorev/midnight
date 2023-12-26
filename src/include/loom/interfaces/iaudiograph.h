@@ -1,7 +1,7 @@
 #pragma once
 
 #include "loom/interfaces/iaudiosubsystem.h"
-#include "loom/audionode.h"
+#include "loom/nodes/audionode.h"
 
 namespace Loom
 {

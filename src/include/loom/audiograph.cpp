@@ -1,5 +1,5 @@
 #include "loom/audiograph.h"
-#include "loom/audionode.h"
+#include "loom/nodes/audionode.h"
 #include "loom/interfaces/iaudiosystem.h"
 #include "loom/nodes/mixingnode.h"
 

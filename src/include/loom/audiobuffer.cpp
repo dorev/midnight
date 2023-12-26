@@ -4,12 +4,10 @@
 namespace Loom
 {
 
-AudioBuffer::AudioBuffer(IAudioBufferProvider* pool, u8* data, u32 capacity)
-    : data(data)
-    , size(0)
-    , channels(0)
-    , sampleRate(0)
-    , format(AudioFormat::NotSpecified)
+AudioBuffer::AudioBuffer(AudioFormat format, IAudioBufferProvider* pool, u8* data, u32 capacity)
+    : _Data(data)
+    , _Size(0)
+    , _Format(format)
     , _Pool(pool)
     , _Capacity(capacity)
     , _RefCount(nullptr)
@@ -24,11 +22,9 @@ AudioBuffer::~AudioBuffer()
 }
 
 AudioBuffer::AudioBuffer(const AudioBuffer& other)
-    : data(other.data)
-    , size(other.size)
-    , channels(other.channels)
-    , sampleRate(other.sampleRate)
-    , format(other.format)
+    : _Data(other._Data)
+    , _Size(other._Size)
+    , _Format(other._Format)
     , _Pool(other._Pool)
     , _Capacity(other._Capacity)
     , _RefCount(other._RefCount)
@@ -42,11 +38,9 @@ AudioBuffer& AudioBuffer::operator=(const AudioBuffer& other)
     if (this != &other)
     {
         DecrementRefCount();
-        data = other.data;
-        size = other.size;
-        channels = other.channels;
-        sampleRate = other.sampleRate;
-        format = other.format;
+        _Data = other._Data;
+        _Size = other._Size;
+        _Format = other._Format;
         _Pool = other._Pool;
         _Capacity = other._Capacity;
         _RefCount = other._RefCount;
@@ -68,11 +62,11 @@ void AudioBuffer::Release()
 
 Result AudioBuffer::CopyDataFrom(const AudioBuffer& other) const
 {
-    if (data == nullptr || other.data == nullptr)
+    if (_Data == nullptr || other._Data == nullptr)
         LOOM_RETURN_RESULT(Result::NoData);
-    if (_Capacity < other.size)
+    if (_Capacity < other._Size)
         LOOM_RETURN_RESULT(Result::BufferCapacityMismatch);
-    memcpy(data, other.data, other.size);
+    memcpy(_Data, other._Data, other._Size);
     return Result::Ok;
 }
 
@@ -80,7 +74,7 @@ Result AudioBuffer::AddSamplesFrom(const AudioBuffer& other)
 {
     if (!FormatMatches(other))
         LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
-    AudioFormat sampleFormat = other.format & AudioFormat::SampleFormatMask;
+    AudioFormat sampleFormat = other._Format & AudioFormat::SampleFormatMask;
     switch (sampleFormat)
     {
         case AudioFormat::Int16:
@@ -96,16 +90,16 @@ Result AudioBuffer::AddSamplesFrom(const AudioBuffer& other)
 
 Result AudioBuffer::GetSampleCount(u32& sampleCount) const
 {
-    if (data != nullptr)
+    if (_Data != nullptr)
     {
-        switch (format & AudioFormat::SampleFormatMask)
+        switch (_Format & AudioFormat::SampleFormatMask)
         {
             case AudioFormat::Int16:
-                sampleCount = size / sizeof (s16);
+                sampleCount = _Size / sizeof (s16);
                 return Result::Ok;
             case AudioFormat::Int32:
             case AudioFormat::Float32:
-                sampleCount = size / sizeof (s32);
+                sampleCount = _Size / sizeof (s32);
                 return Result::Ok;
             default:
                 sampleCount = 0;
@@ -119,15 +113,28 @@ Result AudioBuffer::GetFrameCount(u32& frameCount) const
 {
     Result result = GetSampleCount(frameCount);
     LOOM_CHECK_RESULT(result);
-    frameCount /= channels;
+    frameCount /= GetChannels();
     return Result::Ok;
 }
 
 bool AudioBuffer::FormatMatches(const AudioBuffer& other) const
 {
-    return format == other.format
-        && sampleRate == other.sampleRate
-        && channels == other.channels;
+    return _Format == other._Format;
+}
+
+u32 AudioBuffer::GetChannels() const
+{
+    return ParseChannels(_Format);
+}
+
+u32 AudioBuffer::GetSampleRate() const
+{
+    return ParseSamplingRate(_Format);
+}
+
+AudioFormat AudioBuffer::GetSampleFormat() const
+{
+    return ParseSampleFormat(_Format);
 }
 
 void AudioBuffer::DecrementRefCount()
@@ -138,7 +145,7 @@ void AudioBuffer::DecrementRefCount()
     {
         _Pool->ReleaseBuffer(*this);
         _Pool = nullptr;
-        data = nullptr;
+        _Data = nullptr;
         delete _RefCount;
         _RefCount = nullptr;
     }

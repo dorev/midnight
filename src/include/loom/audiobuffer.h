@@ -14,14 +14,12 @@ class IAudioBufferProvider;
 class AudioBuffer
 {
 public:
-    u32 size;
-    u8* data;
-    u32 channels;
-    u32 sampleRate;
-    AudioFormat format;
+    u32 _Size;
+    u8* _Data;
+    AudioFormat _Format;
 
 public:
-    AudioBuffer(IAudioBufferProvider* pool = nullptr, u8* data = nullptr, u32 capacity = 0);
+    AudioBuffer(AudioFormat format = AudioFormat::NotSpecified, IAudioBufferProvider* pool = nullptr, u8* data = nullptr, u32 capacity = 0);
     AudioBuffer(const AudioBuffer& other);
     AudioBuffer& operator=(const AudioBuffer& other);
     virtual ~AudioBuffer();
@@ -29,15 +27,18 @@ public:
     template <class T = u8>
     T* GetData() const
     {
-        return reinterpret_cast<T*>(data);
+        return reinterpret_cast<T*>(_Data);
     }
 
     void Release();
-
     Result GetSampleCount(u32& sampleCount) const;
     Result GetFrameCount(u32& frameCount) const;
     bool FormatMatches(const AudioBuffer& other) const;
-
+    u32 GetChannels() const;
+    u32 GetSampleRate() const;
+    AudioFormat GetSampleFormat() const;
+    u32 GetSize() const;
+    AudioFormat GetFormat() const;
 
     Result AddSamplesFrom(const AudioBuffer& other);
     Result CopyDataFrom(const AudioBuffer& other) const;
@@ -77,7 +78,7 @@ private:
     template <class T>
     bool SampleFormatMatchHelper()
     {
-        AudioFormat sampleFormat = format & AudioFormat::SampleFormatMask;
+        AudioFormat sampleFormat = _Format & AudioFormat::SampleFormatMask;
         AudioFormat typeFormat = SampleFormatFromType<T>();
         return sampleFormat == typeFormat;
     }

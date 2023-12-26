@@ -11,9 +11,11 @@ namespace Loom
 // Possible states of an audio node
 enum class AudioNodeState
 {
-    Waiting,
-    Ready,
-    Busy,
+    WaitingDependencies,
+    Bypass,
+    Paused,
+    ReadyToExecute,
+    BusyExecuting,
     Idle,
 };
 
@@ -46,6 +48,7 @@ public:
 
 protected:
     AudioBuffer& GetBuffer();
+    IAudioSystem& GetSystem();
     void ReleaseBuffer();
     Result ExecuteInputNodes(AudioBuffer& destinationBuffer);
 

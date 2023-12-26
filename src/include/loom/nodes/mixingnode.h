@@ -4,8 +4,8 @@
 #include "loom/types.h"
 #include "loom/result.h"
 
-#include "loom/audionode.h"
-#include "loom/audionodeparameter.h"
+#include "loom/nodes/audionode.h"
+#include "loom/nodes/audionodeparameter.h"
 
 namespace Loom
 {

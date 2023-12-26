@@ -1,8 +1,5 @@
 #pragma once
 
-#include "loom/defines.h"
-#include "loom/types.h"
-
 #include "loom/audiobuffer.h"
 
 namespace Loom
@@ -11,30 +8,25 @@ namespace Loom
 class AudioAsset
 {
 public:
-    AudioAsset(const string& name, AudioBuffer& buffer)
+    AudioAsset(const char* name, AudioBuffer& buffer)
         : _Name(name)
         , _Buffer(buffer)
-        , _dB(0.f)
     {
+        // Calculate duration
     }
 
     virtual ~AudioAsset()
     {
     }
 
-    const string& GetName() const
+    const char* GetName() const
     {
-        return _Name;
+        return _Name.c_str();
     }
 
-    float GetVolume() const
+    float GetDuration() const
     {
-        return _dB;
-    }
-
-    void SetVolume(float volume)
-    {
-        _dB = volume;
+        return _Duration;
     }
 
     const AudioBuffer& GetBuffer() const
@@ -44,7 +36,7 @@ public:
 
 private:
     string _Name;
-    float _dB;
+    float _Duration;
     AudioBuffer _Buffer;
 };
 

@@ -3,7 +3,7 @@
 namespace Loom
 {
 
-u32 ParseFormatChannels(AudioFormat audioFormat)
+u32 ParseChannels(AudioFormat audioFormat)
 {
     AudioFormat channels = (audioFormat & AudioFormat::ChannelsMask) << AudioFormat::ChannelsOffset;
     return static_cast<u32>(channels);

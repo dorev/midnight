@@ -34,7 +34,7 @@ LOOM_DECLARE_FLAG_ENUM(AudioFormat, u32)
     Invalid = UINT32_MAX
 };
 
-u32 ParseFormatChannels(AudioFormat audioFormat);
+u32 ParseChannels(AudioFormat audioFormat);
 AudioFormat ParseSampleFormat(AudioFormat audioFormat);
 u32 ParseSamplingRate(AudioFormat audioFormat);
 

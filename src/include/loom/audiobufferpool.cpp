@@ -51,7 +51,7 @@ Result AudioBufferPool<BlockSize>::AllocateBuffer(AudioBuffer& buffer)
     u32 blockIndex = currentIndex / BlockSize;
     u32 bufferIndex = currentIndex % BlockSize;
     u8* bufferData = _Blocks[blockIndex]->GetBufferData(bufferIndex);
-    buffer = AudioBuffer(&this, bufferData, _BufferCapacity);
+    buffer = AudioBuffer(AudioFormat::NotSpecified, &this, bufferData, _BufferCapacity);
     return Result::Ok;
 }
 

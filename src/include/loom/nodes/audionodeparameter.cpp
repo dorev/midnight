@@ -1,4 +1,4 @@
-#include "loom/audionodeparameter.h"
+#include "loom/nodes/audionodeparameter.h"
 
 namespace Loom
 {
