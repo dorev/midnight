@@ -27,11 +27,7 @@ class IAudioDeviceManager : public IAudioSubsystem
 {
 public:
     IAudioDeviceManager(IAudioSystem& system);
-    AudioSubsystemType GetType() const final override
-    {
-        return AudioSubsystemType::DeviceManager;
-    }
-
+    AudioSubsystemType GetType() const final override;
     virtual Result RegisterPlaybackCallback(AudioDevicePlaybackCallback callback, void* userData) = 0;
     virtual Result EnumerateDevices(u32& deviceCount, const AudioDeviceDescription*& devices) = 0;
     virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;

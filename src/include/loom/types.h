@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <initializer_list>
 #include <list>
 #include <map>
 #include <memory>
@@ -52,6 +53,7 @@ shared_ptr<T> shared_ptr_cast(const shared_ptr<U>& ptr) \
 // Containers
 using string = std::string;
 template <class T> using vector = std::vector<T>;
+template <class T> using initializer_list = std::initializer_list<T>;
 template <class T> using set = std::set<T>;
 template <class K, class V> using map = std::map<K, V>;
 template <class... T> using variant = std::variant<T...>;

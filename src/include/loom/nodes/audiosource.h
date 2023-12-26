@@ -23,11 +23,21 @@ public:
     bool loop;
 
 private:
-    virtual Result Execute(AudioBuffer& destinationBuffer)
+    Result Execute(AudioBuffer& destinationBuffer) override
     {
         // make sure that the format specified in the destination buffer is respected!
         LOOM_UNUSED(destinationBuffer);
         return Result::Ok;
+    }
+
+    const char* GetName() const
+    {
+        return "AudioSource";
+    }
+
+    u64 GetTypeId() const
+    {
+        return AudioNodeId::AudioSource;
     }
 
 private:

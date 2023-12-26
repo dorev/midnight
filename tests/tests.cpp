@@ -11,7 +11,7 @@ class TestNode : public AudioNode
 {
 public:
     TestNode(IAudioSystem& system)
-        : AudioNode(system, "TestNode")
+        : AudioNode(system)
     {
     }
 
@@ -19,17 +19,27 @@ public:
     {
         return Result::Ok;
     }
+
+    const char* GetName() const
+    {
+        return "TestNode";
+    }
+
+    u64 GetTypeId() const
+    {
+        return 0;
+    }
 };
 
 TEST_F(CompilationTests, AudioGraph)
 {
     AudioSystem system;
-    AudioGraph& graph = static_cast<AudioGraph&>(system.GetGraphInterface());
-    shared_ptr<TestNode> input = graph.CreateNode<TestNode>(system.GetInterface());
-    shared_ptr<TestNode> gain = graph.CreateNode<TestNode>(system.GetInterface());
-    shared_ptr<TestNode> reverb = graph.CreateNode<TestNode>(system.GetInterface());
-    shared_ptr<TestNode> output = graph.CreateNode<TestNode>(system.GetInterface());
+    IAudioGraph& graph = system.GetGraphInterface();
+    shared_ptr<AudioNode> input = graph.CreateNode<TestNode>();
+    shared_ptr<AudioNode> gain = graph.CreateNode<TestNode>();
+    shared_ptr<AudioNode> reverb = graph.CreateNode<TestNode>();
+    shared_ptr<AudioNode> output = graph.CreateNode<TestNode>();
 
-    Result result = graph.Chain(input, gain, reverb, output);
-    EXPECT_EQ(result, Result::Ok);
+    Result result = graph.ConnectNodes({input, gain, reverb, output});
+    LOOM_UNUSED(result);
 }

@@ -12,6 +12,88 @@ AudioGraph::AudioGraph(IAudioSystem& system)
 {
 }
 
+const char* AudioGraph::GetName() const
+{
+    return "AudioGraph";
+}
+
+AudioGraphState AudioGraph::GetState() const
+{
+    return _State;
+}
+
+Result AudioGraph::InsertNode(shared_ptr<AudioNode>& node)
+{
+    _UpdateNodesMutex.lock();
+    if (_NodesToAdd.insert(node).second)
+        return Result::Ok;
+    else
+        LOOM_RETURN_RESULT(Result::UnableToAddNode);
+}
+
+void AudioGraph::OnNodeInsertSuccess(shared_ptr<AudioNode>& node)
+{
+    LOOM_LOG("Queuing node %s for insertion to AudioGraph.", node->GetName());
+    // TODO: consider moving initialization once
+    Result result = node->Initialize();
+    if (result != Result::Ok)
+    {
+        LOOM_LOG_RESULT(result);
+        LOOM_LOG_WARNING("Failed node %s (%llu) initialization.", node->GetName(), node->GetId());
+    }
+    _UpdateNodesMutex.unlock();
+}
+
+void AudioGraph::OnNodeInsertFailure(shared_ptr<AudioNode>& node, const Result& result)
+{
+    LOOM_LOG_WARNING("Unable to add node %s to AudioGraph. Shutting down and deallocating node.", node->GetName());
+    LOOM_LOG_RESULT(result);
+    node->Shutdown();
+    node = nullptr;
+    _UpdateNodesMutex.unlock();
+}
+
+void AudioGraph::OnNodeCreationFailure(shared_ptr<AudioNode>& node)
+{
+    const char* name = node == nullptr ? "{nullptr}" : node->GetName();
+    LOOM_LOG_WARNING("Failed to create node %s.", name);
+}
+
+Result AudioGraph::RemoveNode(shared_ptr<AudioNode>& node)
+{
+    scoped_lock lock(_UpdateNodesMutex);
+    if (node == nullptr)
+        LOOM_RETURN_RESULT(Result::Nullptr);
+    if (_NodesToRemove.insert(node).second)
+        return Result::Ok;
+    else
+        LOOM_RETURN_RESULT(Result::CannotFind);
+}
+
+Result AudioGraph::ConnectNodes(shared_ptr<AudioNode>& sourceNode, shared_ptr<AudioNode>& destinationNode)
+{
+    _NodesToConnect.emplace_back(sourceNode, destinationNode);
+    return Result::Ok;
+}
+
+Result AudioGraph::ConnectNodes(initializer_list<shared_ptr<AudioNode>>&& nodes)
+{
+    Result result = Result::InvalidParameter;
+    if (nodes.size() > 1)
+    {
+        shared_ptr<AudioNode> previousNode = nullptr;
+        for (auto itr = nodes.begin(); itr != nodes.end(); itr++)
+        {
+            shared_ptr<AudioNode> node = *itr;
+            if (itr != nodes.begin())
+                LOOM_CHECK_RESULT(ConnectNodes(previousNode, node));
+            previousNode = node;
+        }
+        result = Result::Ok;
+    }
+    return result;
+}
+
 Result AudioGraph::Execute(AudioBuffer& destinationBuffer)
 {
     AudioGraphState idleState = AudioGraphState::Idle;
@@ -22,7 +104,6 @@ Result AudioGraph::Execute(AudioBuffer& destinationBuffer)
     LOOM_CHECK_RESULT(result);
     return _OutputNode->Execute(destinationBuffer);
 }
-
 
 Result AudioGraph::UpdateNodes()
 {

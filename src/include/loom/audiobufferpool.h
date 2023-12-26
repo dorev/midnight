@@ -25,7 +25,7 @@ private:
     class Block
     {
     public:
-        u32 buffers[BlockSize];
+        atomic<u32> buffers[BlockSize];
 
     public:
         Block(u32 bufferSize);

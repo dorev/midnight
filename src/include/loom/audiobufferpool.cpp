@@ -42,7 +42,7 @@ Result AudioBufferPool<BlockSize>::AllocateBuffer(AudioBuffer& buffer)
     u32 currentIndex = TailSentinel;
     do
     {
-        currentIndex = _Head;
+        currentIndex = _Head.load(std::memory_order_relaxed);
         if (currentIndex == TailSentinel)
             ExpandPool(currentIndex);
     }
@@ -72,8 +72,8 @@ Result AudioBufferPool<BlockSize>::ReleaseBuffer(AudioBuffer& buffer)
     u32 currentHead = TailSentinel;
     do
     {
-        currentHead = _Head;
-        _Blocks[blockIndex]->buffers[bufferIndex] = currentHead;
+        currentHead = _Head.load(std::memory_order_relaxed);
+        _Blocks[blockIndex]->buffers[bufferIndex].store(currentHead, std::memory_order_seq_cst);
     }
     while (!_Head.compare_exchange_strong(currentHead, bufferPoolIndex));
     return Result::Ok;

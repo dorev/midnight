@@ -35,6 +35,7 @@ enum class Result : u32
     BufferFormatMismatch,
     NoData,
     InvalidBufferSampleFormat,
+    InvalidParameter,
     Unknown = UINT32_MAX
 };
 

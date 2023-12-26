@@ -42,7 +42,9 @@ public:
 
     IAudioGraph& GetGraphInterface()
     {
-        return static_cast<IAudioGraph&>(_Graph);
+        if (_Graph == nullptr)
+            return AudioGraphStub::GetInstance();
+        return *_Graph;
     }
 
     IAudioCodec& GetCodecInterface() const override
@@ -85,7 +87,7 @@ public:
 private:
     AudioSystemConfig _Config;
     map<shared_ptr<AudioAsset>, set<shared_ptr<AudioSource>>> _AudioSources;
-    AudioGraph _Graph;
+    unique_ptr<IAudioGraph> _Graph;
     unique_ptr<IAudioCodec> _Decoder;
     unique_ptr<IAudioDeviceManager> _DeviceManager;
     unique_ptr<IAudioResampler> _Resampler;

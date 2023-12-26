@@ -17,57 +17,37 @@ enum class AudioNodeState
     Idle,
 };
 
+struct AudioNodeId
+{
+    static constexpr u64 AudioSource = 1;
+    static constexpr u64 MixingNode = 2;
+};
+
 class IAudioSystem;
 
-// Base class of processing nodes of the audio graph
 class AudioNode
 {
 public:
-    AudioNode(IAudioSystem& system, const char* name);
+    AudioNode(IAudioSystem& system);
     virtual ~AudioNode();
 
     // Method to override for custom node processing
     virtual Result Execute(AudioBuffer& outputBuffer) = 0;
+    virtual const char* GetName() const = 0;
+    virtual u64 GetTypeId() const = 0;
+    virtual u64 GetId() const;
+    virtual Result Initialize();
+    virtual Result Shutdown();
 
-    // Called when the graph creates the node
-    virtual Result Initialize()
-    {
-        return Result::Ok;
-    }
-
-    // Called when the node is removed
-    virtual Result Shutdown()
-    {
-        return Result::Ok;
-    }
-
-    AudioNodeState GetState() const
-    {
-        return _State;
-    }
-
-    const char* GetName() const
-    {
-        return _Name.c_str();
-    }
-
+    AudioNodeState GetState() const;
     Result AddInput(shared_ptr<AudioNode> node);
     Result AddOutput(shared_ptr<AudioNode> node);
     Result Disconnect(shared_ptr<AudioNode> node);
 
 protected:
-    void SetName(const char* name)
-    {
-        _Name = name;
-    }
-
-    AudioBuffer& GetNodeBuffer()
-    {
-        return _Buffer;
-    }
-
+    AudioBuffer& GetBuffer();
     void ReleaseBuffer();
-    Result PullInputNodes(AudioBuffer& destinationBuffer);
+    Result ExecuteInputNodes(AudioBuffer& destinationBuffer);
 
 private:
     friend class IAudioGraph;

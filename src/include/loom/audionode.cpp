@@ -4,15 +4,34 @@
 namespace Loom
 {
 
-AudioNode::AudioNode(IAudioSystem& system, const char* name)
+AudioNode::AudioNode(IAudioSystem& system)
     : _System(system)
-    , _Name(name)
     , _State(AudioNodeState::Idle)
 {
 }
 
 AudioNode::~AudioNode()
 {
+}
+
+u64 AudioNode::GetId() const
+{
+    return reinterpret_cast<u64>(this);
+}
+
+Result AudioNode::Initialize()
+{
+    return Result::Ok;
+}
+
+Result AudioNode::Shutdown()
+{
+    return Result::Ok;
+}
+
+AudioNodeState AudioNode::GetState() const
+{
+    return _State.load(std::memory_order_relaxed);
 }
 
 Result AudioNode::AddInput(shared_ptr<AudioNode> node)
@@ -44,12 +63,17 @@ Result AudioNode::Disconnect(shared_ptr<AudioNode> node)
     return Result::Ok;
 }
 
+AudioBuffer& AudioNode::GetBuffer()
+{
+    return _Buffer;
+}
+
 void AudioNode::ReleaseBuffer()
 {
     _Buffer.Release();
 }
 
-Result AudioNode::PullInputNodes(AudioBuffer& destinationBuffer)
+Result AudioNode::ExecuteInputNodes(AudioBuffer& destinationBuffer)
 {
     if (_InputNodes.empty())
         LOOM_RETURN_RESULT(Result::NoData);

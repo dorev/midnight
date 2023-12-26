@@ -5,7 +5,7 @@ namespace Loom
 {
 
 AudioSystem::AudioSystem()
-    : _Graph(GetInterface())
+    : _Graph(new AudioGraph(GetInterface()))
 {
 }
 
@@ -70,7 +70,6 @@ Result AudioSystem::SetService(IAudioSubsystem* service)
                 _DeviceManager->Shutdown();
             _DeviceManager.reset(static_cast<IAudioDeviceManager*>(service));
             return _DeviceManager->Initialize();
-
         default:
             LOOM_RETURN_RESULT(Result::InvalidEnumValue);
     }
