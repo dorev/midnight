@@ -15,27 +15,27 @@ AudioSubsystemType IAudioGraph::GetType() const
     return AudioSubsystemType::Graph;
 }
 
-void IAudioGraph::VisitNode(const shared_ptr<AudioNode>& node)
+void IAudioGraph::VisitNode(const AudioNodePtr& node)
 {
     node->_Visited = true;
 }
 
-void IAudioGraph::ClearNodeVisit(const shared_ptr<AudioNode>& node)
+void IAudioGraph::ClearNodeVisit(const AudioNodePtr& node)
 {
     node->_Visited = false;
 }
 
-bool IAudioGraph::NodeWasVisited(const shared_ptr<AudioNode>& node)
+bool IAudioGraph::NodeWasVisited(const AudioNodePtr& node)
 {
     return node->_Visited;
 }
 
-set<shared_ptr<AudioNode>>& IAudioGraph::GetNodeOutputNodes(const shared_ptr<AudioNode>& node)
+set<AudioNodePtr>& IAudioGraph::GetNodeOutputNodes(const AudioNodePtr& node)
 {
     return node->_OutputNodes;
 }
 
-set<shared_ptr<AudioNode>>& IAudioGraph::GetNodeInputNodes(const shared_ptr<AudioNode>& node)
+set<AudioNodePtr>& IAudioGraph::GetNodeInputNodes(const AudioNodePtr& node)
 {
     return node->_InputNodes;
 }
@@ -68,37 +68,37 @@ AudioGraphState AudioGraphStub::GetState() const
     return AudioGraphState::Invalid;
 }
 
-Result AudioGraphStub::InsertNode(shared_ptr<AudioNode>&)
+Result AudioGraphStub::InsertNode(AudioNodePtr&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-void AudioGraphStub::OnNodeInsertSuccess(shared_ptr<AudioNode>&)
+void AudioGraphStub::OnNodeInsertSuccess(AudioNodePtr&)
 {
     LOOM_LOG_RESULT(Result::CallingStub);
 }
 
-void AudioGraphStub::OnNodeInsertFailure(shared_ptr<AudioNode>&, const Result&)
+void AudioGraphStub::OnNodeInsertFailure(AudioNodePtr&, const Result&)
 {
     LOOM_LOG_RESULT(Result::CallingStub);
 }
 
-void AudioGraphStub::OnNodeCreationFailure(shared_ptr<AudioNode>&)
+void AudioGraphStub::OnNodeCreationFailure(AudioNodePtr&)
 {
     LOOM_LOG_RESULT(Result::CallingStub);
 }
 
-Result AudioGraphStub::RemoveNode(shared_ptr<AudioNode>&)
+Result AudioGraphStub::RemoveNode(AudioNodePtr&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioGraphStub::ConnectNodes(shared_ptr<AudioNode>&, shared_ptr<AudioNode>&)
+Result AudioGraphStub::ConnectNodes(AudioNodePtr&, AudioNodePtr&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioGraphStub::ConnectNodes(initializer_list<shared_ptr<AudioNode>>&&)
+Result AudioGraphStub::ConnectNodes(initializer_list<AudioNodePtr>&&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

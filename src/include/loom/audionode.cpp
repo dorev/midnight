@@ -34,7 +34,7 @@ AudioNodeState AudioNode::GetState() const
     return _State.load(std::memory_order_relaxed);
 }
 
-Result AudioNode::AddInput(shared_ptr<AudioNode> node)
+Result AudioNode::AddInput(AudioNodePtr node)
 {
     if (node == nullptr)
         LOOM_RETURN_RESULT(Result::Nullptr);
@@ -44,7 +44,7 @@ Result AudioNode::AddInput(shared_ptr<AudioNode> node)
         LOOM_RETURN_RESULT(Result::UnableToConnect);
 }
 
-Result AudioNode::AddOutput(shared_ptr<AudioNode> node)
+Result AudioNode::AddOutput(AudioNodePtr node)
 {
     if (node ==  nullptr)
         LOOM_RETURN_RESULT(Result::Nullptr);
@@ -54,7 +54,7 @@ Result AudioNode::AddOutput(shared_ptr<AudioNode> node)
         LOOM_RETURN_RESULT(Result::UnableToConnect);
 }
 
-Result AudioNode::Disconnect(shared_ptr<AudioNode> node)
+Result AudioNode::Disconnect(AudioNodePtr node)
 {
     if (node ==  nullptr)
         LOOM_RETURN_RESULT(Result::Nullptr);
@@ -79,7 +79,7 @@ Result AudioNode::ExecuteInputNodes(AudioBuffer& destinationBuffer)
         LOOM_RETURN_RESULT(Result::NoData);
     for (auto itr = _InputNodes.begin(); itr != _InputNodes.end(); itr++)
     {
-        shared_ptr<AudioNode> node = *itr;
+        AudioNodePtr node = *itr;
         node->Execute(destinationBuffer);
         if (itr == _InputNodes.begin())
         {

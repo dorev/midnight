@@ -22,7 +22,7 @@ AudioGraphState AudioGraph::GetState() const
     return _State;
 }
 
-Result AudioGraph::InsertNode(shared_ptr<AudioNode>& node)
+Result AudioGraph::InsertNode(AudioNodePtr& node)
 {
     _UpdateNodesMutex.lock();
     if (_NodesToAdd.insert(node).second)
@@ -31,7 +31,7 @@ Result AudioGraph::InsertNode(shared_ptr<AudioNode>& node)
         LOOM_RETURN_RESULT(Result::UnableToAddNode);
 }
 
-void AudioGraph::OnNodeInsertSuccess(shared_ptr<AudioNode>& node)
+void AudioGraph::OnNodeInsertSuccess(AudioNodePtr& node)
 {
     LOOM_LOG("Queuing node %s for insertion to AudioGraph.", node->GetName());
     // TODO: consider moving initialization once
@@ -44,7 +44,7 @@ void AudioGraph::OnNodeInsertSuccess(shared_ptr<AudioNode>& node)
     _UpdateNodesMutex.unlock();
 }
 
-void AudioGraph::OnNodeInsertFailure(shared_ptr<AudioNode>& node, const Result& result)
+void AudioGraph::OnNodeInsertFailure(AudioNodePtr& node, const Result& result)
 {
     LOOM_LOG_WARNING("Unable to add node %s to AudioGraph. Shutting down and deallocating node.", node->GetName());
     LOOM_LOG_RESULT(result);
@@ -53,13 +53,13 @@ void AudioGraph::OnNodeInsertFailure(shared_ptr<AudioNode>& node, const Result& 
     _UpdateNodesMutex.unlock();
 }
 
-void AudioGraph::OnNodeCreationFailure(shared_ptr<AudioNode>& node)
+void AudioGraph::OnNodeCreationFailure(AudioNodePtr& node)
 {
     const char* name = node == nullptr ? "{nullptr}" : node->GetName();
     LOOM_LOG_WARNING("Failed to create node %s.", name);
 }
 
-Result AudioGraph::RemoveNode(shared_ptr<AudioNode>& node)
+Result AudioGraph::RemoveNode(AudioNodePtr& node)
 {
     scoped_lock lock(_UpdateNodesMutex);
     if (node == nullptr)
@@ -70,21 +70,21 @@ Result AudioGraph::RemoveNode(shared_ptr<AudioNode>& node)
         LOOM_RETURN_RESULT(Result::CannotFind);
 }
 
-Result AudioGraph::ConnectNodes(shared_ptr<AudioNode>& sourceNode, shared_ptr<AudioNode>& destinationNode)
+Result AudioGraph::ConnectNodes(AudioNodePtr& sourceNode, AudioNodePtr& destinationNode)
 {
     _NodesToConnect.emplace_back(sourceNode, destinationNode);
     return Result::Ok;
 }
 
-Result AudioGraph::ConnectNodes(initializer_list<shared_ptr<AudioNode>>&& nodes)
+Result AudioGraph::ConnectNodes(initializer_list<AudioNodePtr>&& nodes)
 {
     Result result = Result::InvalidParameter;
     if (nodes.size() > 1)
     {
-        shared_ptr<AudioNode> previousNode = nullptr;
+        AudioNodePtr previousNode = nullptr;
         for (auto itr = nodes.begin(); itr != nodes.end(); itr++)
         {
-            shared_ptr<AudioNode> node = *itr;
+            AudioNodePtr node = *itr;
             if (itr != nodes.begin())
                 LOOM_CHECK_RESULT(ConnectNodes(previousNode, node));
             previousNode = node;
@@ -108,13 +108,13 @@ Result AudioGraph::Execute(AudioBuffer& destinationBuffer)
 Result AudioGraph::UpdateNodes()
 {
     scoped_lock lock(_UpdateNodesMutex);
-    for (const shared_ptr<AudioNode>& node : _NodesToRemove)
+    for (const AudioNodePtr& node : _NodesToRemove)
     {
         node->Shutdown();
         _Nodes.erase(node);
     }
     _NodesToRemove.clear();
-    for (const shared_ptr<AudioNode>& node : _NodesToAdd)
+    for (const AudioNodePtr& node : _NodesToAdd)
         _Nodes.insert(node);
     _NodesToAdd.clear();
     if (_Nodes.empty())
@@ -127,14 +127,14 @@ Result AudioGraph::UpdateNodes()
     _NodesToConnect.clear();
 
     // Evaluate output node
-    set<shared_ptr<AudioNode>> outputNodes;
+    set<AudioNodePtr> outputNodes;
     ClearNodesVisitedFlag();
-    for (const shared_ptr<AudioNode>& node : _Nodes)
+    for (const AudioNodePtr& node : _Nodes)
         SearchOutputNodes(node, outputNodes);
     bool nodesContainsOutputNode = _OutputNode != nullptr && _Nodes.find(_OutputNode) != _Nodes.end();
     if (outputNodes.size() == 1)
     {
-        shared_ptr<AudioNode> node = *outputNodes.begin();
+        AudioNodePtr node = *outputNodes.begin();
         if (node == _OutputNode)
         {
             // The only leaf is the current output node
@@ -168,32 +168,32 @@ Result AudioGraph::UpdateNodes()
             _OutputNode = shared_ptr_cast<AudioNode>(make_shared<MixingNode>(GetSystemInterface()));
             _Nodes.insert(_OutputNode);
         }
-        for (shared_ptr<AudioNode> node : outputNodes)
+        for (AudioNodePtr node : outputNodes)
             node->AddOutput(_OutputNode);
     }
     return Result::Ok;
 }
 
-void AudioGraph::SearchOutputNodes(shared_ptr<AudioNode> node, set<shared_ptr<AudioNode>>& outputNodesSearchResult)
+void AudioGraph::SearchOutputNodes(AudioNodePtr node, set<AudioNodePtr>& outputNodesSearchResult)
 {
     if (NodeWasVisited(node))
         return;
     VisitNode(node);
-    set<shared_ptr<AudioNode>>& visitedNodeOutputNodes = GetNodeOutputNodes(node);
+    set<AudioNodePtr>& visitedNodeOutputNodes = GetNodeOutputNodes(node);
     if (visitedNodeOutputNodes.empty())
     {
         outputNodesSearchResult.insert(node);
     }
     else
     {
-        for (shared_ptr<AudioNode> outputNode : visitedNodeOutputNodes)
+        for (AudioNodePtr outputNode : visitedNodeOutputNodes)
             SearchOutputNodes(outputNode, outputNodesSearchResult);
     }
 }
 
 void AudioGraph::ClearNodesVisitedFlag()
 {
-    for (shared_ptr<AudioNode> node : _Nodes)
+    for (AudioNodePtr node : _Nodes)
         ClearNodeVisit(node);
 }
 

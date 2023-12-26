@@ -32,7 +32,7 @@ public:
     Result Shutdown();
     shared_ptr<AudioAsset> LoadAudioAsset(const char* filePath);
     Result UnloadAudioAsset(const shared_ptr<AudioAsset> audioAsset);
-    shared_ptr<AudioSource> CreateAudioSource(const shared_ptr<AudioAsset> audioAsset, const shared_ptr<AudioNode> inputNode);
+    shared_ptr<AudioSource> CreateAudioSource(const shared_ptr<AudioAsset> audioAsset, const AudioNodePtr inputNode);
     Result DestroyAudioSource(const shared_ptr<AudioSource> audioSource);
 
     const AudioSystemConfig& GetConfig() const override

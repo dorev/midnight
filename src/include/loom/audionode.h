@@ -62,4 +62,6 @@ private:
     bool _Visited;
 };
 
+using AudioNodePtr = shared_ptr<AudioNode>;
+
 } // namespace Loom
