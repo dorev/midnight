@@ -13,7 +13,7 @@ IAudioCodec::IAudioCodec(IAudioSystem& system)
 
 AudioSubsystemType IAudioCodec::GetType() const
 {
-    return AudioSubsystemType::Decoder;
+    return AudioSubsystemType::Codec;
 }
 
 AudioCodecStub::AudioCodecStub()
@@ -33,12 +33,7 @@ const char* AudioCodecStub::GetName() const
     return "IAudioCodec stub";
 }
 
-Result AudioCodecStub::CreateSampleBuffer(const char*, AudioBuffer&) 
-{
-    LOOM_RETURN_RESULT(Result::CallingStub);
-}
-
-Result AudioCodecStub::OpenFile(const char*, IAudioFile&)
+Result AudioCodecStub::LoadAsset(const char*, AudioAsset&) 
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

@@ -41,7 +41,7 @@ Result AudioSystem::SetService(IAudioSubsystem* service)
 
     switch(service->GetType())
     {
-        case AudioSubsystemType::Decoder:
+        case AudioSubsystemType::Codec:
             if (_Decoder != nullptr)
                 _Decoder->Shutdown();
             _Decoder.reset(static_cast<IAudioCodec*>(service));

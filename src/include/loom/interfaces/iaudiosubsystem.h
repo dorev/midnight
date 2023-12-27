@@ -10,7 +10,7 @@ namespace Loom
 enum class AudioSubsystemType
 {
     Graph,
-    Decoder,
+    Codec,
     Resampler,
     ChannelRemapper,
     DeviceManager,

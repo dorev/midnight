@@ -35,4 +35,17 @@ u32 ParseSamplingRate(AudioFormat audioFormat)
     }
 }
 
+Result SetChannels(AudioFormat& audioFormat, u32 channels)
+{
+    if (channels <= 0 || channels > static_cast<u32>(AudioFormat::MaxChannels))
+        return Result::InvalidParameter;
+
+    // Clear channels bits
+    format =& ~(static_cast<u32>(AudioFormat::ChannelsMask));
+
+    // Set channels bits
+    format =| (channels << static_cast<u32>(AudioFormat::ChannelsOffset));
+    return Result::Ok;
+}
+
 } // namespace Loom

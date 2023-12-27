@@ -13,6 +13,7 @@ LOOM_DECLARE_FLAG_ENUM(AudioFormat, u32)
     // First 4 bits contains the channel count
     ChannelsOffset = 0,
     ChannelsMask = 0x0F,
+    MaxChannels = 15,
 
     SampleFormatOffset = 4,
     LOOM_FLAG(Int16, SampleFormatOffset + 0),
@@ -37,5 +38,6 @@ LOOM_DECLARE_FLAG_ENUM(AudioFormat, u32)
 u32 ParseChannels(AudioFormat audioFormat);
 AudioFormat ParseSampleFormat(AudioFormat audioFormat);
 u32 ParseSamplingRate(AudioFormat audioFormat);
+Result SetChannels(AudioFormat& audioFormat, u32 channels);
 
 } // namespace Loom
