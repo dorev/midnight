@@ -6,6 +6,7 @@ namespace Loom
 {
 
 class AudioBuffer;
+class AudioAsset;
 
 class IAudioCodec : public IAudioSubsystem
 {

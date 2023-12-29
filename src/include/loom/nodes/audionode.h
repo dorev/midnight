@@ -50,6 +50,7 @@ protected:
     AudioBuffer& GetBuffer();
     IAudioSystem& GetSystem();
     void ReleaseBuffer();
+    bool Bypass() const;
     Result ExecuteInputNodes(AudioBuffer& destinationBuffer);
 
 private:
@@ -63,6 +64,7 @@ private:
 
     IAudioSystem& _System;
     bool _Visited;
+    bool _Bypass;
 };
 
 using AudioNodePtr = shared_ptr<AudioNode>;

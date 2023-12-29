@@ -78,6 +78,11 @@ void AudioNode::ReleaseBuffer()
     _Buffer.Release();
 }
 
+bool AudioNode::Bypass() const
+{
+    return _Bypass;
+}
+
 Result AudioNode::ExecuteInputNodes(AudioBuffer& destinationBuffer)
 {
     if (_InputNodes.empty())

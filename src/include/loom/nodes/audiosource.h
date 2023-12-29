@@ -1,6 +1,7 @@
 #pragma once
 
 #include "loom/nodes/audionode.h"
+#include "loom/time.h"
 
 namespace Loom
 {
@@ -9,17 +10,20 @@ class AudioAsset;
 
 enum class AudioSourceState
 {
-    WaitingAssetLoad,
-    Stopped,
+    Invalid,
+    Initializing,
+    Loading,
+    Priming,
     Playing,
-    Paused
+    Stopping,
+    Stopped,
+    Unloading
 };
 
 using FadeFunction = void(*)(float&, float, u64, u64);
-
+/*
 void LinearFade(float& gain, float targetGain, u64 currentTime, u64 endTime)
 {
-
 };
 void FadeIn(float& gain, float targetGain, u64 currentTime, u64 endTime)
 {
@@ -29,48 +33,37 @@ void FadeOut(float& gain, float targetGain, u64 currentTime, u64 endTime)
 {
     LinearFade(gain, 0.0f, currentTime, endTime);
 };
+*/
+
 
 class AudioSource : public AudioNode
 {
 public:
+    AudioSource(IAudioSystem& system)
+        : AudioNode(system)
+        , _StateData(Initializing, 0, 0, nullptr)
+    {
+    }
+
     Result Play(float fadeIn = 0.0f)
     {
-        _State = AudioSourceState::Playing;
-        SetFade(FadeIn, fadeIn);
-    }
-
-    void SetFade(FadeFunction function, float duration)
-    {
-        if (_FadeFunction != nullptr && function == nullptr)
-        {
-            _FadeEndTime = Time::Now();
-        }
-        else
-        {
-            _FadeFunction = function;
-            _FadeEndTime = Time::Now() + Time::SecondsToNanoseconds(duration);
-        }
-    }
-
-    Result Pause(float fadeOut = 0.05f)
-    {
-        _State = AudioSourceState::Paused;
-        SetFade(FadeOut, fadeOut);
+        return _StateData.state.Play(_StateData, fadeIn);
     }
 
     Result Stop(float fadeOut = 0.05f)
     {
-        _State = AudioSourceState::Stopped;
-        SetFade(FadeOut, fadeOut);
+        return _StateData.state.Stop(_StateData, fadeOut);
     }
 
     Result Seek(u32 sample)
     {
+        LOOM_UNUSED(sample);
         LOOM_RETURN_RESULT(Result::NotYetImplemented);
     }
 
     Result Seek(float seconds)
     {
+        LOOM_UNUSED(seconds);
         LOOM_RETURN_RESULT(Result::NotYetImplemented);
     }
 
@@ -86,10 +79,10 @@ public:
 
     bool IsVirtual() const
     {
-        return _Virtual;
+        return Bypass();
     }
 
-private:
+public:
     Result Execute(AudioBuffer& destinationBuffer) override
     {
         // make sure that the format specified in the destination buffer is respected!
@@ -109,18 +102,79 @@ private:
 
 private:
     u32 _Id;
-    atomic<AudioSourceState> _State;
     u32 _SamplePosition;
     u32 _Priority;
-    bool _Virtual;
     bool _Loop;
-
     float _Volume;
-    float _FadeGain;
-    u64 _FadeEndTime;
-    FadeFunction _FadeFunction;
-
     shared_ptr<AudioAsset> _AudioAsset;
+
+    class IState;
+    struct StateData
+    {
+        StateData(IState& state, float fadeGain, u64 fadeEndTime, FadeFunction fadeFunction)
+            : state(state)
+            , fadeGain(fadeGain)
+            , fadeEndTime(fadeEndTime)
+            , fadeFunction(fadeFunction)
+        {
+        }
+
+        IState& state;
+        float fadeGain;
+        u64 fadeEndTime;
+        FadeFunction fadeFunction;
+        // load callback
+        // unload callback
+        // playing callback
+        // stopped callback
+    }
+    _StateData;
+
+    class IState
+    {
+    public:
+        virtual AudioSourceState GetState() = 0;
+        virtual Result Play(StateData& context, float fade) = 0;
+        virtual Result Stop(StateData& context, float fade) = 0;
+    };
+
+    static class InitializingState : public IState
+    {
+        AudioSourceState GetState() final override
+        {
+            return AudioSourceState::Initializing;
+        }
+
+        Result Play(StateData&, float) final override
+        {
+            return Result::NotYetImplemented;
+        }
+
+        Result Stop(StateData&, float) final override
+        {
+            return Result::NotYetImplemented;
+        }
+    }
+    Initializing;
+
+    static class PlayingState : public IState
+    {
+        AudioSourceState GetState() final override
+        {
+            return AudioSourceState::Playing;
+        }
+
+        Result Play(StateData&, float) final override
+        {
+            return Result::NotYetImplemented;
+        }
+
+        Result Stop(StateData&, float) final override
+        {
+            return Result::NotYetImplemented;
+        }
+    }
+    Playing;
 };
 
 } // namespace Loom
