@@ -37,6 +37,7 @@ enum class Result : u32
     InvalidBufferSampleFormat,
     InvalidParameter,
     InvalidState,
+    Ignore,
     Unknown = UINT32_MAX
 };
 

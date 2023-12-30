@@ -8,7 +8,7 @@ namespace Loom
 {
 
 
-using FadeFunction = void(*)(float&, float, u64, u64);
+using FadeFunction = void(*)(float&, u64, u64);
 
 void LinearFade(float& gain, float targetGain, u64 startTime, u64 endTime)
 {
@@ -29,11 +29,11 @@ void LinearFade(float& gain, float targetGain, u64 startTime, u64 endTime)
     gain += gainRange * fadeRatio;
 
 };
-void FadeIn(float& gain, float targetGain, u64 startTime, u64 endTime)
+void FadeIn(float& gain, u64 startTime, u64 endTime)
 {
     LinearFade(gain, 1.0f, startTime, endTime);
 };
-void FadeOut(float& gain, float targetGain, u64 startTime, u64 endTime)
+void FadeOut(float& gain, u64 startTime, u64 endTime)
 {
     LinearFade(gain, 0.0f, startTime, endTime);
 };
@@ -73,6 +73,7 @@ public:
         , _Asset(asset)
         , _State(Initializing)
         , _PendingEvent(NoEvent)
+        , _FadeGain(0.0f)
     {
     }
 
@@ -141,10 +142,11 @@ public:
                 }
             }
             return Result::Ok;
+
         case Playing:
             if (IsVirtual())
             {
-                ConfigureFade(FadeOut, VirtualFadeDuration)
+                ConfigureFade(FadeOut, VirtualFadeDuration);
                 _State = Virtualizing;
             }
             if (StopIsRequested())
@@ -153,6 +155,7 @@ public:
                 _State = Stopping;
             }
             return Result::Ok;
+
         case Stopping:
         case Stopped:
             if (PlayIsRequested())
@@ -161,11 +164,13 @@ public:
                 _State = Playing;
             }
             return Result::Ok;
+
         case Virtualizing:
         case Virtual:
             if (!IsVirtual())
                 _State = Devirtualizing;
             return Result::Ok;
+
         case Devirtualizing:
             if (StopIsRequested())
             {
@@ -173,9 +178,11 @@ public:
                 _State = Stopping;
             }
             return Result::Ok;
+
         case Unloading:
         case Unloaded:
             LOOM_RETURN_RESULT(Result::NotYetImplemented);
+
         case Invalid:
         default:
             LOOM_RETURN_RESULT(Result::InvalidState);
@@ -190,19 +197,31 @@ public:
         case Loading:
             // check buffer template requirements!!
             return Result::NotReady;
+
         case Playing:
-        {
-            
-        }
+        case Devirtualizing:
+            break; // go straight to sending samples!!
+
         case Stopping:
             if (_FadeGain == 0.0f)
+            {
                 _State = Stopped;
-        case Stopped:
+                return Result::Ignore;
+            }
+            break;
+
         case Virtualizing:
             if (_FadeGain == 0.0f)
+            {
                 _State = Virtual;
-        case Virtual;
-        case Devirtualizing:
+                return Result::Ignore;
+            }
+            break;
+
+        case Stopped:
+        case Virtual:
+            return Result::Ignore;
+
         case Unloading:
         case Unloaded:
             LOOM_RETURN_RESULT(Result::NotYetImplemented);
@@ -211,11 +230,24 @@ public:
         default:
             LOOM_RETURN_RESULT(Result::InvalidState);
         }
-        return Result::Ok;
+        AudioBuffer assetBuffer = _Asset->GetBuffer();
+        if (!assetBuffer.FormatMatches(destinationBuffer))
+            LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
 
-        // make sure that the format specified in the destination buffer is respected!
-        LOOM_UNUSED(destinationBuffer);
-        LOOM_RETURN_RESULT(Result::NotYetImplemented);
+        // TODO: MUST IMPLEMENT WRAP AROUND!!
+        u32 assetDataOffset = _FramePosition * assetBuffer.GetChannels() * assetBuffer.GetSampleSize();
+
+        // TODO: implement a way to do the fade multiplication when copying
+        destinationBuffer.CopyDataFrom(assetBuffer, assetDataOffset, destinationBuffer.GetSize());
+        if (_FadeFunction != nullptr)
+        {
+            _FadeFunction(_FadeGain, _FadeStartTime, _FadeEndTime);
+            destinationBuffer.MultiplySamplesBy(_FadeGain);
+            if ((_FadeFunction == FadeIn && _FadeGain == 1.0f) || (_FadeFunction == FadeOut && _FadeGain == 0.0f))
+                _FadeFunction = nullptr;
+        }
+        _FramePosition += destinationBuffer.GetFrameCount();
+        return Result::Ok;
     }
 
     void ConfigureFade(FadeFunction function, float duration)
@@ -225,6 +257,10 @@ public:
         {
             _FadeStartTime = Now();
             _FadeEndTime = _FadeStartTime + static_cast<u64>(duration * NanosecondsPerSecond);
+            if (function == FadeIn)
+                _FadeGain = 0.0f;
+            else if (function == FadeOut)
+                _FadeGain = 1.0f;
         }
     }
 
@@ -238,16 +274,26 @@ public:
         return AudioNodeId::AudioSource;
     }
 
-    Result Seek(u32 sample)
+    Result SeekFrame(u32 frame)
     {
-        LOOM_UNUSED(sample);
+        LOOM_UNUSED(frame);
         LOOM_RETURN_RESULT(Result::NotYetImplemented);
     }
 
-    Result Seek(float seconds)
+    Result SeekTime(float seconds)
     {
         LOOM_UNUSED(seconds);
         LOOM_RETURN_RESULT(Result::NotYetImplemented);
+    }
+
+    u32 GetFramePosition() const
+    {
+        return _FramePosition;
+    }
+
+    float GetTimePosition() const
+    {
+        return GetFramePosition() / _Asset->GetFrames() * _Asset->GetDuration();
     }
 
     void SetLoop(bool loop)
@@ -265,7 +311,7 @@ public:
         return Bypass();
     }
 
-    AudioSourceState GetState() const
+    AudioSource::State GetState() const
     {
         return _State;
     }
@@ -288,14 +334,14 @@ private:
 
 private:
     u32 _Id;
-    u32 _SamplePosition;
+    u32 _FramePosition;
     u32 _Priority;
     bool _Loop;
     float _Volume;
     shared_ptr<AudioAsset> _Asset;
 
-    atomic<AudioSourceEvent> _PendingEvent;
-    atomic<AudioSourceState> _State;
+    atomic<AudioSource::Event> _PendingEvent;
+    atomic<AudioSource::State> _State;
 
     float _FadeGain;
     float _FadeInDuration;

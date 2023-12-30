@@ -14,11 +14,6 @@ class IAudioBufferProvider;
 class AudioBuffer
 {
 public:
-    u32 _Size;
-    u8* _Data;
-    AudioFormat _Format;
-
-public:
     AudioBuffer(AudioFormat format = AudioFormat::NotSpecified, IAudioBufferProvider* pool = nullptr, u8* data = nullptr, u32 capacity = 0);
     AudioBuffer(const AudioBuffer& other);
     AudioBuffer& operator=(const AudioBuffer& other);
@@ -31,23 +26,30 @@ public:
     }
 
     void Release();
-    Result GetSampleCount(u32& sampleCount) const;
-    Result GetFrameCount(u32& frameCount) const;
+    u32 GetSampleCount() const;
+    u32 GetFrameCount() const;
     bool FormatMatches(const AudioBuffer& other) const;
     u32 GetChannels() const;
     u32 GetSampleRate() const;
     AudioFormat GetSampleFormat() const;
+    u32 GetSampleSize() const;
     u32 GetSize() const;
     AudioFormat GetFormat() const;
 
     Result AddSamplesFrom(const AudioBuffer& other);
-    Result CopyDataFrom(const AudioBuffer& other) const;
+    Result CloneDataFrom(const AudioBuffer& other);
+    Result CopyDataFrom(const AudioBuffer& other, u32 offset, u32 size);
 
     template <class T>
     Result MultiplySamplesBy(T multiplier)
     {
         if (multiplier == 1)
             return Result::Ok;
+        if (multiplier == 0)
+        {
+            memset(_Data, 0, _Size);
+            return Result::Ok;
+        }
         if (!SampleFormatMatchHelper<T>())
             LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
         T* samples = GetData<T>();
@@ -97,8 +99,11 @@ private:
     }
 
 private:
-    IAudioBufferProvider* _Pool;
     u32 _Capacity;
+    u32 _Size;
+    u8* _Data;
+    AudioFormat _Format;
+    IAudioBufferProvider* _Pool;
     atomic<u32>* _RefCount;
 };
 

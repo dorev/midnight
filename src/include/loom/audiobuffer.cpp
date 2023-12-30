@@ -60,13 +60,29 @@ void AudioBuffer::Release()
         _RefCount = nullptr;
 }
 
-Result AudioBuffer::CopyDataFrom(const AudioBuffer& other) const
+Result AudioBuffer::CloneDataFrom(const AudioBuffer& other)
 {
     if (_Data == nullptr || other._Data == nullptr)
         LOOM_RETURN_RESULT(Result::NoData);
     if (_Capacity < other._Size)
         LOOM_RETURN_RESULT(Result::BufferCapacityMismatch);
     memcpy(_Data, other._Data, other._Size);
+    _Size = other._Size;
+    return Result::Ok;
+}
+
+Result AudioBuffer::CopyDataFrom(const AudioBuffer& other, u32 offset, u32 size)
+{
+    if (_Data == nullptr || other._Data == nullptr)
+        LOOM_RETURN_RESULT(Result::NoData);
+    if (size == 0)
+        LOOM_RETURN_RESULT(Result::InvalidParameter);
+    if (size > _Capacity)
+        LOOM_RETURN_RESULT(Result::BufferCapacityMismatch);
+    if ((offset + size) > other._Size)
+        LOOM_RETURN_RESULT(Result::ExceedingLimits);
+    memcpy(_Data, other._Data + offset, size);
+    _Size = size;
     return Result::Ok;
 }
 
@@ -88,31 +104,32 @@ Result AudioBuffer::AddSamplesFrom(const AudioBuffer& other)
     }
 }
 
-Result AudioBuffer::GetSampleCount(u32& sampleCount) const
+u32 AudioBuffer::GetSampleCount() const
 {
-    if (_Data != nullptr)
+    u32 sampleCount = 0;
+    if (_Data == nullptr)
     {
-        switch (_Format & AudioFormat::SampleFormatMask)
-        {
-            case AudioFormat::Int16:
-                sampleCount = _Size / sizeof (s16);
-                return Result::Ok;
-            case AudioFormat::Int32:
-            case AudioFormat::Float32:
-                sampleCount = _Size / sizeof (s32);
-                return Result::Ok;
-            default:
-                sampleCount = 0;
-                LOOM_RETURN_RESULT(Result::InvalidBufferSampleFormat);
-        }
+        LOOM_LOG_RESULT(Result::NoData);
     }
-    LOOM_RETURN_RESULT(Result::NoData);
+    else
+    {
+        u32 sampleSize = GetSampleSize();
+        if (sampleSize > 0)
+            sampleCount = _Size / sampleSize;
+        else
+            LOOM_LOG_RESULT(Result::InvalidBufferSampleFormat);
+    }
+    return sampleCount;
 }
 
 Result AudioBuffer::GetFrameCount(u32& frameCount) const
 {
     Result result = GetSampleCount(frameCount);
-    LOOM_CHECK_RESULT(result);
+    if (!Ok(result))
+    {
+        frameCount = 0;
+        LOOM_RETURN_RESULT(result);
+    }
     frameCount /= GetChannels();
     return Result::Ok;
 }
@@ -129,12 +146,25 @@ u32 AudioBuffer::GetChannels() const
 
 u32 AudioBuffer::GetSampleRate() const
 {
-    return ParseSamplingRate(_Format);
+    return ParseFrameRate(_Format);
 }
 
 AudioFormat AudioBuffer::GetSampleFormat() const
 {
     return ParseSampleFormat(_Format);
+}
+
+u32 AudioBuffer::GetSampleSize() const
+{
+    switch (GetSampleFormat())
+    {
+        case AudioFormat::Int16: return sizeof(s16);
+        case AudioFormat::Int32: return sizeof(s32);
+        case AudioFormat::Float32: return sizeof(float);
+        default:
+            LOOM_LOG_RESULT(Result::InvalidBufferSampleFormat);
+            return 0;
+    }
 }
 
 void AudioBuffer::DecrementRefCount()

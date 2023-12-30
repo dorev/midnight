@@ -15,7 +15,7 @@
 #define LOOM_LOG_WARNING(format, ...) printf("[WARNING] {%s}" format "\n", LOOM_FUNCTION, ##__VA_ARGS__);
 #define LOOM_LOG_ERROR(format, ...) printf("[ERROR] {%s}" format " [%s l.%d]\n", LOOM_FUNCTION, ##__VA_ARGS__, __FILE__, __LINE__);
 
-#define LOOM_LOG_RESULT(result) LOOM_LOG_WARNING("Returned %s (%d).", ResultToString(result), static_cast<u32>(result))
+#define LOOM_LOG_RESULT(result) { LOOM_LOG_WARNING("Returned %s (%d).", ResultToString(result), static_cast<u32>(result)) }
 #define LOOM_RETURN_RESULT(result) { LOOM_LOG_RESULT(result); return result; }
 #define LOOM_CHECK_RESULT(result) if (result != Result::Ok) { LOOM_RETURN_RESULT(result); }
 
@@ -42,6 +42,10 @@ constexpr EnumName operator&(EnumName a, EnumName b) \
 constexpr EnumName operator<<(EnumName a, EnumName b) \
 { \
     return static_cast<EnumName>(static_cast<UnderlyingType>(a) << static_cast<UnderlyingType>(b)); \
+} \
+constexpr EnumName operator>>(EnumName a, EnumName b) \
+{ \
+    return static_cast<EnumName>(static_cast<UnderlyingType>(a) >> static_cast<UnderlyingType>(b)); \
 } \
 inline EnumName& operator|=(EnumName& a, EnumName b) \
 { \

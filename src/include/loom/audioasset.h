@@ -1,7 +1,7 @@
 #pragma once
 
 #include "loom/audiobuffer.h"
-#include "loom/iaudiosystem.h"
+#include "loom/interfaces/iaudiosystem.h"
 
 namespace Loom
 {
@@ -51,6 +51,16 @@ public:
     float GetDuration() const
     {
         return _Duration;
+    }
+
+    u32 GetFrames() const
+    {
+        u32 frameCount = 0;
+        Result result = _Buffer.GetFrameCount(frameCount);
+        if (Ok(result))
+            return frameCount;
+        LOOM_LOG_RESULT(result);
+        return 0;
     }
 
     const AudioBuffer& GetBuffer() const
