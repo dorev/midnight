@@ -5,18 +5,41 @@
 namespace Loom
 {
 
+enum class AudioAssetState
+{
+    Invalid,
+    Unloaded,
+    Loading,
+    Loaded,
+    Unloading
+};
+
+using AudioAssetCallback = void(*)();
+
 class AudioAsset
 {
 public:
-    AudioAsset(const char* name, AudioBuffer& buffer)
-        : _Name(name)
-        , _Buffer(buffer)
+    AudioAsset(IAudioSystem& system, const char* name, const char* filePath)
+        : _System(system)
+        , _Name(name)
+        , _FilePath(filePath)
+        , _State(AudioAssetState::Unloaded)
     {
         // Calculate duration
     }
 
     virtual ~AudioAsset()
     {
+    }
+
+    Result Load()
+    {
+        return Result::NotYetImplemented;
+    }
+
+    Result Unload()
+    {
+        return Result::NotYetImplemented;
     }
 
     const char* GetName() const
@@ -34,8 +57,16 @@ public:
         return _Buffer;
     }
 
+    AudioAssetState GetState() const
+    {
+        return _State;
+    }
+
 private:
+    IAudioSystem& _System;
     string _Name;
+    string _FilePath;
+    AudioAssetState _State;
     float _Duration;
     AudioBuffer _Buffer;
 };

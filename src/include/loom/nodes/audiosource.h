@@ -17,7 +17,18 @@ enum class AudioSourceState
     Playing,
     Stopping,
     Stopped,
-    Unloading
+    Virtualizing,
+    Virtual,
+    Devirtualizing,
+    Unloading,
+    Unloaded
+};
+
+enum class AudioSourceEvent
+{
+    NoEvent,
+    Play,
+    Stop,
 };
 
 using FadeFunction = void(*)(float&, float, u64, u64);
@@ -39,20 +50,105 @@ void FadeOut(float& gain, float targetGain, u64 currentTime, u64 endTime)
 class AudioSource : public AudioNode
 {
 public:
-    AudioSource(IAudioSystem& system)
+    AudioSource(IAudioSystem& system, shared_ptr<AudioAsset> asset)
         : AudioNode(system)
-        , _StateData(Initializing, 0, 0, nullptr)
+        , _Asset(asset)
+        , _State(AudioSourceState::Initializing)
     {
+        Result result = LoadAsset();
     }
 
-    Result Play(float fadeIn = 0.0f)
+    Result Play(float fade = 0.0f)
     {
-        return _StateData.state.Play(_StateData, fadeIn);
+        _PendingEvent = AudioSourceEvent::Play;
+        _FadeDuration = fade;
+        return Update();
     }
 
-    Result Stop(float fadeOut = 0.05f)
+    Result Stop(float fade = 0.05f)
     {
-        return _StateData.state.Stop(_StateData, fadeOut);
+        _PendingEvent = AudioSourceEvent::Stop;
+        _FadeDuration = fade;
+        return Update();
+    }
+
+    Result LoadAsset()
+    {
+        if (_Asset != nullptr)
+        {
+            switch (_State)
+            {
+            case AudioSourceState::Initializing:
+            case AudioSourceState::Loading:
+                switch (_Asset->GetState())
+                {
+                case AudioAssetState::Loaded:
+                    return Result::Ok;
+                case AudioAssetState::Unloaded:
+                    _Asset->Load();
+                    [[fallthrough]]
+                case AudioAssetState::Loading:
+                case AudioAssetState::Unloading:
+                    return Result::NotReady;
+                default:
+                    break;
+                }
+                break;
+            default:
+                return Result::Ok;
+            }
+        }
+        _State = AudioSourceState::Invalid;
+        LOOM_RETURN_RESULT(Result::InvalidFile);
+    }
+
+    Result Update()
+    {
+        Result result = Result::Ok;
+        AudioSourceState state = _State.load();
+        switch(state)
+        {
+        case AudioSourceState::Initializing:
+        case AudioSourceState::Loading:
+            result = LoadAsset();
+            switch (result)
+            {
+            case Result::Ok:
+                switch (_PendingEvent)
+                {
+                case AudioSourceEvent::Play:
+                    _State = AudioSourceState::Priming;
+                    break;
+                case AudioSourceEvent::NoEvent:
+                case AudioSourceEvent::Stop:
+                default:
+                    _State = AudioSourceState::Stopped;
+                    break;
+                }
+                [[fallthrough]]
+            case Result::NotReady:
+                return Result::Ok;
+            default:
+                return result;
+            }
+
+        case AudioSourceState::Priming:
+        case AudioSourceState::Playing:
+            return Result::Ok;
+
+        case AudioSourceState::Stopping:
+        case AudioSourceState::Stopped:
+            _State = AudioSourceState::Priming;
+            return Result::Ok;
+    
+        case AudioSourceState::Unloading:
+        case AudioSourceState::Unloaded:
+
+        case AudioSourceState::Invalid:
+        default:
+            break;
+        }
+        return Result::NotYetImplemented;
     }
 
     Result Seek(u32 sample)
@@ -82,6 +178,11 @@ public:
         return Bypass();
     }
 
+    AudioSourceState GetState() const
+    {
+        return _State;
+    }
+
 public:
     Result Execute(AudioBuffer& destinationBuffer) override
     {
@@ -106,75 +207,17 @@ private:
     u32 _Priority;
     bool _Loop;
     float _Volume;
-    shared_ptr<AudioAsset> _AudioAsset;
-
-    class IState;
-    struct StateData
-    {
-        StateData(IState& state, float fadeGain, u64 fadeEndTime, FadeFunction fadeFunction)
-            : state(state)
-            , fadeGain(fadeGain)
-            , fadeEndTime(fadeEndTime)
-            , fadeFunction(fadeFunction)
-        {
-        }
-
-        IState& state;
-        float fadeGain;
-        u64 fadeEndTime;
-        FadeFunction fadeFunction;
-        // load callback
-        // unload callback
-        // playing callback
-        // stopped callback
-    }
-    _StateData;
-
-    class IState
-    {
-    public:
-        virtual AudioSourceState GetState() = 0;
-        virtual Result Play(StateData& context, float fade) = 0;
-        virtual Result Stop(StateData& context, float fade) = 0;
-    };
-
-    static class InitializingState : public IState
-    {
-        AudioSourceState GetState() final override
-        {
-            return AudioSourceState::Initializing;
-        }
-
-        Result Play(StateData&, float) final override
-        {
-            return Result::NotYetImplemented;
-        }
-
-        Result Stop(StateData&, float) final override
-        {
-            return Result::NotYetImplemented;
-        }
-    }
-    Initializing;
-
-    static class PlayingState : public IState
-    {
-        AudioSourceState GetState() final override
-        {
-            return AudioSourceState::Playing;
-        }
-
-        Result Play(StateData&, float) final override
-        {
-            return Result::NotYetImplemented;
-        }
-
-        Result Stop(StateData&, float) final override
-        {
-            return Result::NotYetImplemented;
-        }
-    }
-    Playing;
+    shared_ptr<AudioAsset> _Asset;
+    atomic<AudioSourceEvent> _PendingEvent;
+    atomic<AudioSourceState> _State;
+    float _FadeDuration;
+    float _FadeGain;
+    u64 _FadeEndTime;
+    FadeFunction _
+    // load callback
+    // unload callback
+    // playing callback
+    // stopped callback
 };
 
 } // namespace Loom

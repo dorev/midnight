@@ -4,7 +4,6 @@
 #include "loom/types.h"
 #include "loom/result.h"
 
-#include "loom/audiograph.h"
 #include "loom/audiosystemconfig.h"
 #include "loom/interfaces/iaudiosystem.h"
 #include "loom/interfaces/iaudiobufferprovider.h"
