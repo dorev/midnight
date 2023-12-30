@@ -3,6 +3,11 @@
 namespace Loom
 {
 
+bool Ok(Result result)
+{
+    return result == Result::Ok;
+}
+
 const char* ResultToString(Result result)
 {
     switch(result)

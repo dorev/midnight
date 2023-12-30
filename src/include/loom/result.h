@@ -36,8 +36,11 @@ enum class Result : u32
     NoData,
     InvalidBufferSampleFormat,
     InvalidParameter,
+    InvalidState,
     Unknown = UINT32_MAX
 };
+
+bool Ok(Result result);
 
 const char* ResultToString(Result result);
 
