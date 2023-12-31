@@ -11,29 +11,29 @@ IAudioCodec::IAudioCodec(IAudioSystem& system)
 {
 }
 
-IAudioCodec& IAudioCodec::GetStub()
-{
-    static IAudioCodec instance(IAudioSystem::GetStub());
-    return instance;
-}
-
-IAudioCodec& IAudioCodec::GetInterface()
-{
-    return *this;
-}
-
 AudioSubsystemType IAudioCodec::GetType() const
 {
     return AudioSubsystemType::Codec;
 }
 
-const char* IAudioCodec::GetName() const
+AudioCodecStub::AudioCodecStub()
+    : IAudioCodec(IAudioSystem::GetStub())
+{
+}
+
+AudioCodecStub& AudioCodecStub::GetInstance()
+{
+    static AudioCodecStub instance;
+    return instance;
+}
+
+const char* AudioCodecStub::GetName() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
     return "IAudioCodec stub";
 }
 
-Result IAudioCodec::LoadAsset(const char*, AudioAsset&)
+Result AudioCodecStub::LoadAsset(const char*, AudioAsset&) 
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

@@ -27,16 +27,27 @@ class IAudioDeviceManager : public IAudioSubsystem
 {
 public:
     IAudioDeviceManager(IAudioSystem& system);
-    static IAudioDeviceManager& GetStub();
-    IAudioDeviceManager& GetInterface();
-    const char* GetName() const override;
     AudioSubsystemType GetType() const final override;
-    virtual Result RegisterPlaybackCallback(AudioDevicePlaybackCallback callback, void* userData);
-    virtual Result EnumerateDevices(u32& deviceCount, const AudioDeviceDescription*& devices);
-    virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device);
-    virtual Result SelectDefaultPlaybackDevice();
-    virtual Result Start();
-    virtual Result Stop();
+    virtual Result RegisterPlaybackCallback(AudioDevicePlaybackCallback callback, void* userData) = 0;
+    virtual Result EnumerateDevices(u32& deviceCount, const AudioDeviceDescription*& devices) = 0;
+    virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;
+    virtual Result SelectDefaultPlaybackDevice() = 0;
+    virtual Result Start() = 0;
+    virtual Result Stop() = 0;
+};
+
+class AudioDeviceManagerStub : public IAudioDeviceManager
+{
+public:
+    AudioDeviceManagerStub();
+    static AudioDeviceManagerStub& GetInstance();
+    const char* GetName() const final override;
+    Result RegisterPlaybackCallback(AudioDevicePlaybackCallback, void*) final override;
+    Result EnumerateDevices(u32&, const AudioDeviceDescription*&) final override;
+    Result SelectPlaybackDevice(const AudioDeviceDescription*) final override;
+    Result SelectDefaultPlaybackDevice() final override;
+    Result Start() final override;
+    Result Stop() final override;
 };
 
 } // namespace Loom

@@ -39,42 +39,42 @@ public:
     IAudioGraph& GetGraph()
     {
         if (_Graph == nullptr)
-            return IAudioGraph::GetStub();
+            return AudioGraphStub::GetInstance();
         return *_Graph;
     }
 
     IAudioCodec& GetCodec() const override
     {
         if (_Decoder == nullptr)
-            return IAudioCodec::GetStub();
+            return AudioCodecStub::GetInstance();
         return *_Decoder;
     }
 
     IAudioDeviceManager& GetDeviceManager() const override
     {
         if (_DeviceManager == nullptr)
-            return IAudioDeviceManager::GetStub();
+            return AudioDeviceManagerStub::GetInstance();
         return *_DeviceManager;
     }
 
     IAudioResampler& GetResampler() const override
     {
         if (_Resampler == nullptr)
-            return IAudioResampler::GetStub();
+            return AudioResamplerStub::GetInstance();
         return *_Resampler;
     }
 
     IAudioChannelRemapper& GetChannelRemapper() const override
     {
         if (_ChannelRemapper == nullptr)
-            return IAudioChannelRemapper::GetStub();
+            return AudioChannelRemapperStub::GetInstance();
         return *_ChannelRemapper;
     }
 
     IAudioBufferProvider& GetBufferProvider() const override
     {
         if (_BufferProvider == nullptr)
-            return IAudioBufferProvider::GetStub();
+            return AudioBufferProviderStub::GetInstance();
         return *_BufferProvider;
     }
 

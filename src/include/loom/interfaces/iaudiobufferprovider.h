@@ -11,12 +11,20 @@ class IAudioBufferProvider : public IAudioSubsystem
 {
 public:
     IAudioBufferProvider(IAudioSystem& system);
-    static IAudioBufferProvider& GetStub();
-    IAudioBufferProvider& GetInterface();
-    const char* GetName() const override;
     AudioSubsystemType GetType() const final override;
-    virtual Result AllocateBuffer(AudioBuffer& buffer);
-    virtual Result ReleaseBuffer(AudioBuffer& buffer);
+
+    virtual Result AllocateBuffer(AudioBuffer& buffer) = 0;
+    virtual Result ReleaseBuffer(AudioBuffer& buffer) = 0;
+};
+
+class AudioBufferProviderStub : public IAudioBufferProvider
+{
+public:
+    AudioBufferProviderStub();
+    static AudioBufferProviderStub& GetInstance();
+    const char* GetName() const final override;
+    Result AllocateBuffer(AudioBuffer&) final override;
+    Result ReleaseBuffer(AudioBuffer&) final override;
 };
 
 } // namespace Loom

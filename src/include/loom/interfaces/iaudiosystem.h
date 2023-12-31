@@ -18,13 +18,26 @@ public:
     virtual ~IAudioSystem();
     static IAudioSystem& GetStub();
     IAudioSystem& GetInterface();
-    virtual const AudioSystemConfig& GetConfig() const;
-    virtual IAudioGraph& GetGraph();
-    virtual IAudioCodec& GetCodec() const;
-    virtual IAudioDeviceManager& GetDeviceManager() const;
-    virtual IAudioResampler& GetResampler() const;
-    virtual IAudioChannelRemapper& GetChannelRemapper() const;
-    virtual IAudioBufferProvider& GetBufferProvider() const;
+    virtual const AudioSystemConfig& GetConfig() const = 0;
+    virtual IAudioGraph& GetGraph() = 0;
+    virtual IAudioCodec& GetCodec() const = 0;
+    virtual IAudioDeviceManager& GetDeviceManager() const = 0;
+    virtual IAudioResampler& GetResampler() const = 0;
+    virtual IAudioChannelRemapper& GetChannelRemapper() const = 0;
+    virtual IAudioBufferProvider& GetBufferProvider() const = 0;
+};
+
+class AudioSystemStub : public IAudioSystem
+{
+public:
+    static IAudioSystem& GetInstance();
+    const AudioSystemConfig& GetConfig() const;
+    IAudioGraph& GetGraph() final override;
+    IAudioCodec& GetCodec() const final override;
+    IAudioDeviceManager& GetDeviceManager() const final override;
+    IAudioResampler& GetResampler() const final override;
+    IAudioChannelRemapper& GetChannelRemapper() const final override;
+    IAudioBufferProvider& GetBufferProvider() const final override;
 };
 
 } // namespace Loom

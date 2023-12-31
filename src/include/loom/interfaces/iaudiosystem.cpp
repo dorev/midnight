@@ -16,8 +16,7 @@ IAudioSystem::~IAudioSystem()
 
 IAudioSystem& IAudioSystem::GetStub()
 {
-    static IAudioSystem instance;
-    return instance;
+    return AudioSystemStub::GetInstance().GetInterface();
 }
 
 IAudioSystem& IAudioSystem::GetInterface()
@@ -25,47 +24,53 @@ IAudioSystem& IAudioSystem::GetInterface()
     return *this;
 }
 
-const AudioSystemConfig& IAudioSystem::GetConfig() const
+IAudioSystem& AudioSystemStub::GetInstance()
 {
-    static const AudioSystemConfig dummyConfig;
+    static AudioSystemStub instance;
+    return instance.GetInterface();
+}
+
+const AudioSystemConfig& AudioSystemStub::GetConfig() const
+{
+    static AudioSystemConfig dummyConfig;
     LOOM_LOG_RESULT(Result::CallingStub);
     return dummyConfig;
 }
 
-IAudioGraph& IAudioSystem::GetGraph()
+IAudioGraph& AudioSystemStub::GetGraph()
 {
     LOOM_LOG_RESULT(Result::CallingStub);
-    return IAudioGraph::GetStub();
+    return AudioGraphStub::GetInstance();
 }
 
-IAudioCodec& IAudioSystem::GetCodec() const
+IAudioCodec& AudioSystemStub::GetCodec() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
-    return IAudioCodec::GetStub();
+    return AudioCodecStub::GetInstance();
 }
 
-IAudioDeviceManager& IAudioSystem::GetDeviceManager() const
+IAudioDeviceManager& AudioSystemStub::GetDeviceManager() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
-    return IAudioDeviceManager::GetStub();
+    return AudioDeviceManagerStub::GetInstance();
 }
 
-IAudioResampler& IAudioSystem::GetResampler() const
+IAudioResampler& AudioSystemStub::GetResampler() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
-    return IAudioResampler::GetStub();
+    return AudioResamplerStub::GetInstance();
 }
 
-IAudioChannelRemapper& IAudioSystem::GetChannelRemapper() const
+IAudioChannelRemapper& AudioSystemStub::GetChannelRemapper() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
-    return IAudioChannelRemapper::GetStub();
+    return AudioChannelRemapperStub::GetInstance();
 }
 
-IAudioBufferProvider& IAudioSystem::GetBufferProvider() const
+IAudioBufferProvider& AudioSystemStub::GetBufferProvider() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
-    return IAudioBufferProvider::GetStub();
+    return AudioBufferProviderStub::GetInstance();
 }
 
 } // namespace Loom
