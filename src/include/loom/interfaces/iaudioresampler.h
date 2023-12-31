@@ -11,17 +11,11 @@ class IAudioResampler : public IAudioSubsystem
 {
 public:
     IAudioResampler(IAudioSystem& system);
+    static IAudioResampler& GetStub();
+    IAudioResampler& GetInterface();
+    const char* GetName() const override;
     AudioSubsystemType GetType() const final override;
-    virtual Result Resample(const AudioBuffer& source, AudioBuffer& destination) = 0;
-};
-
-class AudioResamplerStub : public IAudioResampler
-{
-public:
-    AudioResamplerStub();
-    static AudioResamplerStub& GetInstance();
-    const char* GetName() const final override;
-    Result Resample(const AudioBuffer&, AudioBuffer&) final override;
+    virtual Result Resample(const AudioBuffer& source, AudioBuffer& destination);
 };
 
 } // namespace Loom

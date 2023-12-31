@@ -10,6 +10,17 @@ IAudioGraph::IAudioGraph(IAudioSystem& system)
 {
 }
 
+IAudioGraph& IAudioGraph::GetStub()
+{
+    static IAudioGraph instance(IAudioSystem::GetStub());
+    return instance;
+}
+
+IAudioGraph& IAudioGraph::GetInterface()
+{
+    return *this;
+}
+
 AudioSubsystemType IAudioGraph::GetType() const
 {
     return AudioSubsystemType::Graph;
@@ -40,65 +51,54 @@ set<AudioNodePtr>& IAudioGraph::GetNodeInputNodes(const AudioNodePtr& node)
     return node->_InputNodes;
 }
 
-AudioGraphStub::AudioGraphStub()
-    : IAudioGraph(IAudioSystem::GetStub())
-{
-}
-
-AudioGraphStub& AudioGraphStub::GetInstance()
-{
-    static AudioGraphStub instance;
-    return instance;
-}
-
-const char* AudioGraphStub::GetName() const
+const char* IAudioGraph::GetName() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
     return "IAudioGraph stub";
 }
 
-Result AudioGraphStub::Execute(AudioBuffer&)
+Result IAudioGraph::Execute(AudioBuffer&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-AudioGraphState AudioGraphStub::GetState() const
+AudioGraphState IAudioGraph::GetState() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
     return AudioGraphState::Invalid;
 }
 
-Result AudioGraphStub::InsertNode(AudioNodePtr&)
+Result IAudioGraph::InsertNode(AudioNodePtr&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-void AudioGraphStub::OnNodeInsertSuccess(AudioNodePtr&)
+void IAudioGraph::OnNodeInsertSuccess(AudioNodePtr&)
 {
     LOOM_LOG_RESULT(Result::CallingStub);
 }
 
-void AudioGraphStub::OnNodeInsertFailure(AudioNodePtr&, const Result&)
+void IAudioGraph::OnNodeInsertFailure(AudioNodePtr&, const Result&)
 {
     LOOM_LOG_RESULT(Result::CallingStub);
 }
 
-void AudioGraphStub::OnNodeCreationFailure(AudioNodePtr&)
+void IAudioGraph::OnNodeCreationFailure(AudioNodePtr&)
 {
     LOOM_LOG_RESULT(Result::CallingStub);
 }
 
-Result AudioGraphStub::RemoveNode(AudioNodePtr&)
+Result IAudioGraph::RemoveNode(AudioNodePtr&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioGraphStub::ConnectNodes(AudioNodePtr&, AudioNodePtr&)
+Result IAudioGraph::ConnectNodes(AudioNodePtr&, AudioNodePtr&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioGraphStub::ConnectNodes(initializer_list<AudioNodePtr>&&)
+Result IAudioGraph::ConnectNodes(initializer_list<AudioNodePtr>&&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

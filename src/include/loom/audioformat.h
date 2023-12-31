@@ -7,34 +7,45 @@
 namespace Loom
 {
 
-LOOM_DECLARE_FLAG_ENUM(AudioFormat, u32)
+enum class SampleFormat
 {
-    NotSpecified = 0,
-
-    // First 4 bits contains the channel count
-    ChannelsOffset = 0,
-    ChannelsMax = 0xFF,
-    ChannelsMask = ChannelsMax << ChannelsOffset,
-
-    SampleFormatOffset = 8,
-    Int16 = 1 << SampleFormatOffset,
-    Int32 = 2 << SampleFormatOffset,
-    Float32 = 3 << SampleFormatOffset,
-    SampleFormatMax = 0x0F,
-    SampleFormatMask = SampleFormatMax << SampleFormatOffset,
-
-    FrameRateOffset = 16,
-    Hz44100 = 1 << FrameRateOffset,
-    Hz48000 = 2 << FrameRateOffset,
-    FrameRateMax = 0x0F,
-    FrameRateMask = FrameRateMax << FrameRateOffset,
-
-    Invalid = UINT32_MAX
+    Invalid,
+    Int16,
+    Int32,
+    Float32
 };
 
-u32 ParseChannels(AudioFormat audioFormat);
-AudioFormat ParseSampleFormat(AudioFormat audioFormat);
-u32 ParseFrameRate(AudioFormat audioFormat);
-Result SetChannels(AudioFormat& audioFormat, u32 channels);
+class AudioFormat
+{
+public:
+    u32 channels;
+    u32 frameRate;
+    SampleFormat sampleFormat;
+
+    AudioFormat();
+    AudioFormat(const AudioFormat& other);
+    AudioFormat& operator=(const AudioFormat& other);
+    bool operator==(const AudioFormat& other) const;
+};
+
+template <class T>
+constexpr SampleFormat TypeToSampleFormat()
+{
+    if constexpr (std::is_same_v<T, s16>)
+        return SampleFormat::Int16;
+    else if constexpr (std::is_same_v<T, s32>)
+        return SampleFormat::Int32;
+    else if constexpr (std::is_same_v<T, float>)
+        return SampleFormat::Float32;
+    else
+        return SampleFormat::Invalid;
+}
+
+template<SampleFormat F> struct SampleFormatToTypeImpl;
+template<> struct SampleFormatToTypeImpl<SampleFormat::Int16> { using type = s16; };
+template<> struct SampleFormatToTypeImpl<SampleFormat::Int32> { using type = s32; };
+template<> struct SampleFormatToTypeImpl<SampleFormat::Float32> { using type = float; };
+template <SampleFormat F> using SampleFormatToType = typename SampleFormatToTypeImpl<F>::type;
+
 
 } // namespace Loom

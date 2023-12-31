@@ -8,6 +8,11 @@ namespace Loom
 
 struct AudioSystemConfig
 {
+    AudioSystemConfig()
+        : maxAudibleSources(0)
+    {
+    }
+
     u32 maxAudibleSources;
 };
 

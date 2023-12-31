@@ -11,7 +11,7 @@ AudioSystem::AudioSystem()
 
 Result AudioSystem::Initialize()
 {
-    IAudioDeviceManager& deviceManager = GetDeviceManagerInterface();
+    IAudioDeviceManager& deviceManager = GetDeviceManager();
     Result result = Result::Unknown;
     result = deviceManager.Initialize();
     LOOM_CHECK_RESULT(result);
@@ -19,6 +19,12 @@ Result AudioSystem::Initialize()
     LOOM_CHECK_RESULT(result);
     result = deviceManager.RegisterPlaybackCallback(PlaybackCallback, this);
     LOOM_CHECK_RESULT(result);
+    // TODO: store the device format
+    //      * buffer size
+    //      * sample format
+    //      * channels
+    //      * frame rate
+
     return result;
 }
 
@@ -30,7 +36,7 @@ void AudioSystem::PlaybackCallback(AudioBuffer& destinationBuffer, void* userDat
         LOOM_LOG_ERROR("IAudioSystem not available in PlaybackCallback.");
         return;
     }
-    IAudioGraph& graph = system->GetGraphInterface();
+    IAudioGraph& graph = system->GetGraph();
     graph.Execute(destinationBuffer);
 }
 

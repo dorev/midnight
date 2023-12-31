@@ -10,55 +10,54 @@ IAudioDeviceManager::IAudioDeviceManager(IAudioSystem& system)
     : IAudioSubsystem(system)
 {
 }
+IAudioDeviceManager& IAudioDeviceManager::GetStub()
+{
+    static IAudioDeviceManager instance(IAudioSystem::GetStub());
+    return instance;
+}
+
+IAudioDeviceManager& IAudioDeviceManager::GetInterface()
+{
+    return *this;
+}
 
 AudioSubsystemType IAudioDeviceManager::GetType() const
 {
     return AudioSubsystemType::DeviceManager;
 }
 
-AudioDeviceManagerStub::AudioDeviceManagerStub()
-    : IAudioDeviceManager(IAudioSystem::GetStub())
-{
-}
-
-AudioDeviceManagerStub& AudioDeviceManagerStub::GetInstance()
-{
-    static AudioDeviceManagerStub instance;
-    return instance;
-}
-
-const char* AudioDeviceManagerStub::GetName() const
+const char* IAudioDeviceManager::GetName() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
     return "IAudioDeviceManager stub";
 }
 
-Result AudioDeviceManagerStub::RegisterPlaybackCallback(AudioDevicePlaybackCallback, void*)
+Result IAudioDeviceManager::RegisterPlaybackCallback(AudioDevicePlaybackCallback, void*)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioDeviceManagerStub::EnumerateDevices(u32&, const AudioDeviceDescription*&)
+Result IAudioDeviceManager::EnumerateDevices(u32&, const AudioDeviceDescription*&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioDeviceManagerStub::SelectPlaybackDevice(const AudioDeviceDescription*)
+Result IAudioDeviceManager::SelectPlaybackDevice(const AudioDeviceDescription*)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioDeviceManagerStub::SelectDefaultPlaybackDevice()
+Result IAudioDeviceManager::SelectDefaultPlaybackDevice()
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioDeviceManagerStub::Start()
+Result IAudioDeviceManager::Start()
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioDeviceManagerStub::Stop()
+Result IAudioDeviceManager::Stop()
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

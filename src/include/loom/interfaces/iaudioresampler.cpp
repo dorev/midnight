@@ -11,29 +11,29 @@ IAudioResampler::IAudioResampler(IAudioSystem& system)
 {
 }
 
+IAudioResampler& IAudioResampler::GetStub()
+{
+    static IAudioResampler instance(IAudioSystem::GetStub());
+    return instance;
+}
+
+IAudioResampler& IAudioResampler::GetInterface()
+{
+    return *this;
+}
+
 AudioSubsystemType IAudioResampler::GetType() const
 {
     return AudioSubsystemType::Resampler;
 }
 
-AudioResamplerStub::AudioResamplerStub()
-    : IAudioResampler(IAudioSystem::GetStub())
-{
-}
-
-AudioResamplerStub& AudioResamplerStub::GetInstance()
-{
-    static AudioResamplerStub instance;
-    return instance;
-}
-
-const char* AudioResamplerStub::GetName() const
+const char* IAudioResampler::GetName() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
     return "IAudioResampler stub";
 }
 
-Result AudioResamplerStub::Resample(const AudioBuffer&, AudioBuffer&)
+Result IAudioResampler::Resample(const AudioBuffer&, AudioBuffer&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

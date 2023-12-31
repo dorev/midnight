@@ -35,6 +35,8 @@ enum class Result : u32
     BufferFormatMismatch,
     NoData,
     InvalidBufferSampleFormat,
+    InvalidBufferChannelFormat,
+    InvalidBufferFrameRateFormat,
     InvalidParameter,
     InvalidState,
     Ignore,

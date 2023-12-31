@@ -4,15 +4,15 @@
 namespace Loom
 {
 
-AudioBuffer::AudioBuffer(AudioFormat format, IAudioBufferProvider* pool, u8* data, u32 capacity)
-    : _Data(data)
+AudioBuffer::AudioBuffer(IAudioSystem& system, AudioFormat format, u8* data, u32 capacity)
+    : _System(system)
+    , _Data(data)
     , _Size(0)
     , _Format(format)
-    , _Pool(pool)
     , _Capacity(capacity)
     , _RefCount(nullptr)
 {
-    if (_Pool != nullptr)
+    if (_Data != nullptr)
         _RefCount = new atomic<u32>(1);
 }
 
@@ -22,14 +22,14 @@ AudioBuffer::~AudioBuffer()
 }
 
 AudioBuffer::AudioBuffer(const AudioBuffer& other)
-    : _Data(other._Data)
+    : _System(other._System)
+    , _Data(other._Data)
     , _Size(other._Size)
     , _Format(other._Format)
-    , _Pool(other._Pool)
     , _Capacity(other._Capacity)
     , _RefCount(other._RefCount)
 {
-    if (_Pool != nullptr && _RefCount != nullptr)
+    if (_RefCount != nullptr)
         _RefCount->fetch_add(1);
 }
 
@@ -38,13 +38,13 @@ AudioBuffer& AudioBuffer::operator=(const AudioBuffer& other)
     if (this != &other)
     {
         DecrementRefCount();
+        _System = other._System;
         _Data = other._Data;
         _Size = other._Size;
         _Format = other._Format;
-        _Pool = other._Pool;
         _Capacity = other._Capacity;
         _RefCount = other._RefCount;
-        if (_Pool != nullptr && _RefCount != nullptr)
+        if (_RefCount != nullptr)
             _RefCount->fetch_add(1);
     }
     return *this;
@@ -52,10 +52,7 @@ AudioBuffer& AudioBuffer::operator=(const AudioBuffer& other)
 
 void AudioBuffer::Release()
 {
-    if (_Pool == nullptr)
-        return;
     DecrementRefCount();
-    _Pool = nullptr;
     if (_RefCount != nullptr && _RefCount->load() > 0)
         _RefCount = nullptr;
 }
@@ -90,14 +87,14 @@ Result AudioBuffer::AddSamplesFrom(const AudioBuffer& other)
 {
     if (!FormatMatches(other))
         LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
-    AudioFormat sampleFormat = other._Format & AudioFormat::SampleFormatMask;
+    SampleFormat sampleFormat = other.GetSampleFormat();
     switch (sampleFormat)
     {
-        case AudioFormat::Int16:
+        case SampleFormat::Int16:
             return InternalAddSamplesFrom<s16>(other);
-        case AudioFormat::Int32:
+        case SampleFormat::Int32:
             return InternalAddSamplesFrom<s32>(other);
-        case AudioFormat::Float32:
+        case SampleFormat::Float32:
             return InternalAddSamplesFrom<float>(other);
         default:
             LOOM_RETURN_RESULT(Result::InvalidBufferSampleFormat);
@@ -122,16 +119,15 @@ u32 AudioBuffer::GetSampleCount() const
     return sampleCount;
 }
 
-Result AudioBuffer::GetFrameCount(u32& frameCount) const
+u32 AudioBuffer::GetFrameCount() const
 {
-    Result result = GetSampleCount(frameCount);
-    if (!Ok(result))
-    {
-        frameCount = 0;
-        LOOM_RETURN_RESULT(result);
-    }
-    frameCount /= GetChannels();
-    return Result::Ok;
+    u32 frameCount = GetSampleCount();
+    u32 channels = GetChannels();
+    if (channels > 0)
+        return frameCount /= channels;
+    else
+        return 0;
+
 }
 
 bool AudioBuffer::FormatMatches(const AudioBuffer& other) const
@@ -141,26 +137,26 @@ bool AudioBuffer::FormatMatches(const AudioBuffer& other) const
 
 u32 AudioBuffer::GetChannels() const
 {
-    return ParseChannels(_Format);
+    return _Format.channels;
 }
 
-u32 AudioBuffer::GetSampleRate() const
+u32 AudioBuffer::GetFrameRate() const
 {
-    return ParseFrameRate(_Format);
+    return _Format.frameRate;
 }
 
-AudioFormat AudioBuffer::GetSampleFormat() const
+SampleFormat AudioBuffer::GetSampleFormat() const
 {
-    return ParseSampleFormat(_Format);
+    return _Format.sampleFormat;
 }
 
 u32 AudioBuffer::GetSampleSize() const
 {
     switch (GetSampleFormat())
     {
-        case AudioFormat::Int16: return sizeof(s16);
-        case AudioFormat::Int32: return sizeof(s32);
-        case AudioFormat::Float32: return sizeof(float);
+        case SampleFormat::Int16: return sizeof(s16);
+        case SampleFormat::Int32: return sizeof(s32);
+        case SampleFormat::Float32: return sizeof(float);
         default:
             LOOM_LOG_RESULT(Result::InvalidBufferSampleFormat);
             return 0;
@@ -169,12 +165,9 @@ u32 AudioBuffer::GetSampleSize() const
 
 void AudioBuffer::DecrementRefCount()
 {
-    if (_Pool != nullptr
-        && _RefCount != nullptr
-        && _RefCount->fetch_sub(1) == 1)
+    if (_RefCount != nullptr && _RefCount->fetch_sub(1) == 1)
     {
-        _Pool->ReleaseBuffer(*this);
-        _Pool = nullptr;
+        _System.GetBufferProvider().ReleaseBuffer(*this);
         _Data = nullptr;
         delete _RefCount;
         _RefCount = nullptr;

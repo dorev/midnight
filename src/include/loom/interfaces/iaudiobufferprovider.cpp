@@ -9,34 +9,34 @@ IAudioBufferProvider::IAudioBufferProvider(IAudioSystem& system)
 {
 }
 
+IAudioBufferProvider& IAudioBufferProvider::GetStub()
+{
+    static IAudioBufferProvider instance(IAudioSystem::GetStub());
+    return instance;
+}
+
+IAudioBufferProvider& IAudioBufferProvider::GetInterface()
+{
+    return *this;
+}
+
 AudioSubsystemType IAudioBufferProvider::GetType() const
 {
     return AudioSubsystemType::BufferProvider;
 }
 
-AudioBufferProviderStub::AudioBufferProviderStub()
-    : IAudioBufferProvider(IAudioSystem::GetStub())
-{
-}
-
-AudioBufferProviderStub& AudioBufferProviderStub::GetInstance()
-{
-    static AudioBufferProviderStub instance;
-    return instance;
-}
-
-const char* AudioBufferProviderStub::GetName() const
+const char* IAudioBufferProvider::GetName() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
     return "IAudioBufferProvider stub";
 }
 
-Result AudioBufferProviderStub::AllocateBuffer(AudioBuffer&)
+Result IAudioBufferProvider::AllocateBuffer(AudioBuffer&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioBufferProviderStub::ReleaseBuffer(AudioBuffer&)
+Result IAudioBufferProvider::ReleaseBuffer(AudioBuffer&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

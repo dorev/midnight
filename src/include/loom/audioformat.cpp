@@ -1,55 +1,40 @@
+#pragma once
+
 #include "loom/audioformat.h"
 
 namespace Loom
 {
 
-u32 ParseChannels(AudioFormat audioFormat)
+AudioFormat::AudioFormat()
+    : channels(0)
+    , frameRate(0)
+    , sampleFormat(SampleFormat::Invalid)
 {
-    u32 channels = static_cast<u32>((audioFormat & AudioFormat::ChannelsMask) >> AudioFormat::ChannelsOffset);
-    if (channels == 0)
-        LOOM_LOG_RESULT(Result::InvalidBufferChannelFormat);
-    return channels;
 }
 
-AudioFormat ParseSampleFormat(AudioFormat audioFormat)
+AudioFormat::AudioFormat(const AudioFormat& other)
+    : channels(other.channels)
+    , frameRate(other.frameRate)
+    , sampleFormat(other.sampleFormat)
 {
-    AudioFormat sampleFormat = audioFormat & AudioFormat::SampleFormatMask;
-    switch(sampleFormat)
+}
+
+AudioFormat& AudioFormat::operator=(const AudioFormat& other)
+{
+    if (&other != this)
     {
-        case AudioFormat::Int16:
-        case AudioFormat::Int32:
-        case AudioFormat::Float32:
-            return sampleFormat;
-        default:
-            LOOM_LOG_RESULT(Result::InvalidBufferSampleFormat);
-            return AudioFormat::Invalid;
+        channels = other.channels;
+        frameRate = other.frameRate;
+        sampleFormat = other.sampleFormat;
     }
+    return *this;
 }
 
-u32 ParseFrameRate(AudioFormat audioFormat)
+bool AudioFormat::operator==(const AudioFormat& other) const
 {
-    AudioFormat frameRate = audioFormat & AudioFormat::FrameRateMask;
-    switch(frameRate)
-    {
-        case AudioFormat::Hz44100: return 44100;
-        case AudioFormat::Hz48000: return 48000;
-        default:
-            LOOM_LOG_RESULT(Result::InvalidBufferFrameRateFormat);
-            return 0;
-    }
-}
-
-Result SetChannels(AudioFormat& audioFormat, u32 channels)
-{
-    if (channels <= 0 || channels > static_cast<u32>(AudioFormat::ChannelsMax))
-        LOOM_RETURN_RESULT(Result::InvalidParameter);
-
-    // Clear channels bits
-    audioFormat &= static_cast<AudioFormat>(~(static_cast<u32>(AudioFormat::ChannelsMask)));
-
-    // Set channels bits
-    audioFormat |= static_cast<AudioFormat>(channels << static_cast<u32>(AudioFormat::ChannelsOffset));
-    return Result::Ok;
+    return channels == other.channels
+        && frameRate == other.frameRate
+        && sampleFormat == other.sampleFormat;
 }
 
 } // namespace Loom

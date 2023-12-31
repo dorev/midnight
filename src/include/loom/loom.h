@@ -13,5 +13,5 @@
 #include "loom/nodes/audionode.h"
 #include "loom/audioasset.h"
 #include "loom/nodes/audionodeparameter.h"
-#include "loom/nodes/audiosource.h"
+#include "loom/nodes/assetreadingnode.h"
 #include "loom/nodes/mixingnode.h"

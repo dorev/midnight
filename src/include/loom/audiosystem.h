@@ -1,12 +1,9 @@
 #pragma once
 
-#include "loom/defines.h"
-#include "loom/types.h"
-#include "loom/result.h"
-
 #include "loom/audiosystemconfig.h"
 #include "loom/interfaces/iaudiosystem.h"
 #include "loom/interfaces/iaudiobufferprovider.h"
+#include "loom/interfaces/iaudiograph.h"
 #include "loom/interfaces/iaudiodevicemanager.h"
 #include "loom/interfaces/iaudiocodec.h"
 #include "loom/interfaces/iaudioresampler.h"
@@ -16,7 +13,7 @@ namespace Loom
 {
 
 class AudioNode;
-class AudioSource;
+class AssetReadingNode;
 class AudioAsset;
 
 class AudioSystem : public IAudioSystem
@@ -31,53 +28,53 @@ public:
     Result Shutdown();
     shared_ptr<AudioAsset> LoadAudioAsset(const char* filePath);
     Result UnloadAudioAsset(const shared_ptr<AudioAsset> audioAsset);
-    shared_ptr<AudioSource> CreateAudioSource(const shared_ptr<AudioAsset> audioAsset, const AudioNodePtr inputNode);
-    Result DestroyAudioSource(const shared_ptr<AudioSource> audioSource);
+    shared_ptr<AssetReadingNode> CreateAudioSource(const shared_ptr<AudioAsset> audioAsset, const AudioNodePtr inputNode);
+    Result DestroyAudioSource(const shared_ptr<AssetReadingNode> audioSource);
 
     const AudioSystemConfig& GetConfig() const override
     {
         return _Config;
     }
 
-    IAudioGraph& GetGraphInterface()
+    IAudioGraph& GetGraph()
     {
         if (_Graph == nullptr)
-            return AudioGraphStub::GetInstance();
+            return IAudioGraph::GetStub();
         return *_Graph;
     }
 
-    IAudioCodec& GetCodecInterface() const override
+    IAudioCodec& GetCodec() const override
     {
         if (_Decoder == nullptr)
-            return AudioCodecStub::GetInstance();
+            return IAudioCodec::GetStub();
         return *_Decoder;
     }
 
-    IAudioDeviceManager& GetDeviceManagerInterface() const override
+    IAudioDeviceManager& GetDeviceManager() const override
     {
         if (_DeviceManager == nullptr)
-            return AudioDeviceManagerStub::GetInstance();
+            return IAudioDeviceManager::GetStub();
         return *_DeviceManager;
     }
 
-    IAudioResampler& GetResamplerInterface() const override
+    IAudioResampler& GetResampler() const override
     {
         if (_Resampler == nullptr)
-            return AudioResamplerStub::GetInstance();
+            return IAudioResampler::GetStub();
         return *_Resampler;
     }
 
-    IAudioChannelRemapper& GetChannelRemapperInterface() const override
+    IAudioChannelRemapper& GetChannelRemapper() const override
     {
         if (_ChannelRemapper == nullptr)
-            return AudioChannelRemapperStub::GetInstance();
+            return IAudioChannelRemapper::GetStub();
         return *_ChannelRemapper;
     }
 
-    IAudioBufferProvider& GetBufferProviderInterface() const override
+    IAudioBufferProvider& GetBufferProvider() const override
     {
         if (_BufferProvider == nullptr)
-            return AudioBufferProviderStub::GetInstance();
+            return IAudioBufferProvider::GetStub();
         return *_BufferProvider;
     }
 
@@ -85,7 +82,7 @@ public:
 
 private:
     AudioSystemConfig _Config;
-    map<shared_ptr<AudioAsset>, set<shared_ptr<AudioSource>>> _AudioSources;
+    map<shared_ptr<AudioAsset>, set<shared_ptr<AssetReadingNode>>> _AudioSources;
     unique_ptr<IAudioGraph> _Graph;
     unique_ptr<IAudioCodec> _Decoder;
     unique_ptr<IAudioDeviceManager> _DeviceManager;

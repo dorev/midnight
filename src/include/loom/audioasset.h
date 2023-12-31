@@ -22,6 +22,7 @@ class AudioAsset
 public:
     AudioAsset(IAudioSystem& system, const char* name, const char* filePath)
         : _System(system)
+        , _Buffer(system)
         , _Name(name)
         , _FilePath(filePath)
         , _State(AudioAssetState::Unloaded)
@@ -55,12 +56,10 @@ public:
 
     u32 GetFrames() const
     {
-        u32 frameCount = 0;
-        Result result = _Buffer.GetFrameCount(frameCount);
-        if (Ok(result))
-            return frameCount;
-        LOOM_LOG_RESULT(result);
-        return 0;
+        u32 frameCount = _Buffer.GetFrameCount();
+        if (frameCount == 0)
+            LOOM_LOG_RESULT(Result::InvalidBufferFrameRateFormat);
+        return frameCount;
     }
 
     const AudioBuffer& GetBuffer() const

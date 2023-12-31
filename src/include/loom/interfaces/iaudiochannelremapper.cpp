@@ -14,24 +14,24 @@ AudioSubsystemType IAudioChannelRemapper::GetType() const
     return AudioSubsystemType::ChannelRemapper;
 }
 
-AudioChannelRemapperStub::AudioChannelRemapperStub()
-    : IAudioChannelRemapper(IAudioSystem::GetStub())
+IAudioChannelRemapper& IAudioChannelRemapper::GetStub()
 {
-}
-
-AudioChannelRemapperStub& AudioChannelRemapperStub::GetInstance()
-{
-    static AudioChannelRemapperStub instance;
+    static IAudioChannelRemapper instance(IAudioSystem::GetStub());
     return instance;
 }
 
-const char* AudioChannelRemapperStub::GetName() const
+IAudioChannelRemapper& IAudioChannelRemapper::GetInterface()
+{
+    return *this;
+}
+
+const char* IAudioChannelRemapper::GetName() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
     return "IAudioChannelRemapper stub";
 }
 
-Result AudioChannelRemapperStub::Remap(const AudioBuffer&, AudioBuffer&)
+Result IAudioChannelRemapper::Remap(const AudioBuffer&, AudioBuffer&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

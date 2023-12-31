@@ -11,18 +11,11 @@ class IAudioChannelRemapper : public IAudioSubsystem
 {
 public:
     IAudioChannelRemapper(IAudioSystem& system);
+    static IAudioChannelRemapper& GetStub();
+    IAudioChannelRemapper& GetInterface();
+    const char* GetName() const override;
     AudioSubsystemType GetType() const final override;
-    virtual Result Remap(const AudioBuffer& source, AudioBuffer& destination) = 0;
+    virtual Result Remap(const AudioBuffer& source, AudioBuffer& destination);
 };
-
-class AudioChannelRemapperStub : public IAudioChannelRemapper
-{
-public:
-    AudioChannelRemapperStub();
-    static AudioChannelRemapperStub& GetInstance();
-    const char* GetName() const final override;
-    Result Remap(const AudioBuffer&, AudioBuffer&) final override;
-};
-
 
 } // namespace Loom

@@ -34,11 +34,11 @@ public:
 TEST_F(CompilationTests, AudioGraph)
 {
     AudioSystem system;
-    IAudioGraph& graph = system.GetGraphInterface();
-    shared_ptr<AudioNode> input = graph.CreateNode<TestNode>();
-    shared_ptr<AudioNode> gain = graph.CreateNode<TestNode>();
-    shared_ptr<AudioNode> reverb = graph.CreateNode<TestNode>();
-    shared_ptr<AudioNode> output = graph.CreateNode<TestNode>();
+    IAudioGraph& graph = system.GetGraph();
+    AudioNodePtr input = graph.CreateNode<TestNode>();
+    AudioNodePtr gain = graph.CreateNode<TestNode>();
+    AudioNodePtr reverb = graph.CreateNode<TestNode>();
+    AudioNodePtr output = graph.CreateNode<TestNode>();
 
     Result result = graph.ConnectNodes({input, gain, reverb, output});
     LOOM_UNUSED(result);
