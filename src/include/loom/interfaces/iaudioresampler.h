@@ -1,17 +1,17 @@
 #pragma once
 
-#include "loom/interfaces/iaudiosubsystem.h"
+#include "loom/interfaces/iaudiosystemcomponent.h"
 
 namespace Loom
 {
 
 class AudioBuffer;
 
-class IAudioResampler : public IAudioSubsystem
+class IAudioResampler : public IAudioSystemComponent
 {
 public:
     IAudioResampler(IAudioSystem& system);
-    AudioSubsystemType GetType() const final override;
+    AudioSystemComponentType GetType() const final override;
     virtual Result Resample(const AudioBuffer& source, AudioBuffer& destination) = 0;
 };
 

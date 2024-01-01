@@ -7,13 +7,13 @@ namespace Loom
 {
 
 IAudioCodec::IAudioCodec(IAudioSystem& system)
-    : IAudioSubsystem(system)
+    : IAudioSystemComponent(system)
 {
 }
 
-AudioSubsystemType IAudioCodec::GetType() const
+AudioSystemComponentType IAudioCodec::GetType() const
 {
-    return AudioSubsystemType::Codec;
+    return AudioSystemComponentType::Codec;
 }
 
 AudioCodecStub::AudioCodecStub()

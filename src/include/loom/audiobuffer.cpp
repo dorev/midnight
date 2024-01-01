@@ -4,7 +4,7 @@
 namespace Loom
 {
 
-AudioBuffer::AudioBuffer(IAudioSystem& system, AudioFormat format, u8* data, u32 capacity)
+AudioBuffer::AudioBuffer(IAudioSystem* system, AudioFormat format, u8* data, u32 capacity)
     : _System(system)
     , _Data(data)
     , _Size(0)
@@ -12,7 +12,7 @@ AudioBuffer::AudioBuffer(IAudioSystem& system, AudioFormat format, u8* data, u32
     , _Capacity(capacity)
     , _RefCount(nullptr)
 {
-    if (_Data != nullptr)
+    if (_System != nullptr)
         _RefCount = new atomic<u32>(1);
 }
 
@@ -44,7 +44,7 @@ AudioBuffer& AudioBuffer::operator=(const AudioBuffer& other)
         _Format = other._Format;
         _Capacity = other._Capacity;
         _RefCount = other._RefCount;
-        if (_RefCount != nullptr)
+        if (_System != nullptr && _RefCount != nullptr)
             _RefCount->fetch_add(1);
     }
     return *this;
@@ -53,7 +53,7 @@ AudioBuffer& AudioBuffer::operator=(const AudioBuffer& other)
 void AudioBuffer::Release()
 {
     DecrementRefCount();
-    if (_RefCount != nullptr && _RefCount->load() > 0)
+    if (_System != nullptr && _RefCount != nullptr && _RefCount->load() > 0)
         _RefCount = nullptr;
 }
 
@@ -170,9 +170,9 @@ u32 AudioBuffer::GetSampleSize() const
 
 void AudioBuffer::DecrementRefCount()
 {
-    if (_RefCount != nullptr && _RefCount->fetch_sub(1) == 1)
+    if (_System != nullptr && _RefCount != nullptr && _RefCount->fetch_sub(1) == 1)
     {
-        _System.GetBufferProvider().ReleaseBuffer(*this);
+        _System->GetBufferProvider().ReleaseBuffer(*this);
         _Data = nullptr;
         delete _RefCount;
         _RefCount = nullptr;

@@ -5,13 +5,13 @@ namespace Loom
 {
 
 IAudioBufferProvider::IAudioBufferProvider(IAudioSystem& system)
-    : IAudioSubsystem(system)
+    : IAudioSystemComponent(system)
 {
 }
 
-AudioSubsystemType IAudioBufferProvider::GetType() const
+AudioSystemComponentType IAudioBufferProvider::GetType() const
 {
-    return AudioSubsystemType::BufferProvider;
+    return AudioSystemComponentType::BufferProvider;
 }
 
 AudioBufferProviderStub::AudioBufferProviderStub()

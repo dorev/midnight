@@ -7,13 +7,13 @@ namespace Loom
 {
 
 IAudioResampler::IAudioResampler(IAudioSystem& system)
-    : IAudioSubsystem(system)
+    : IAudioSystemComponent(system)
 {
 }
 
-AudioSubsystemType IAudioResampler::GetType() const
+AudioSystemComponentType IAudioResampler::GetType() const
 {
-    return AudioSubsystemType::Resampler;
+    return AudioSystemComponentType::Resampler;
 }
 
 AudioResamplerStub::AudioResamplerStub()

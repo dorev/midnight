@@ -21,71 +21,30 @@ class AudioSystem : public IAudioSystem
 public:
     AudioSystem();
 
-    Result Initialize();
-
     static void PlaybackCallback(AudioBuffer& destinationBuffer, void* userData);
+    Result Initialize() override;
 
-    Result Shutdown();
-    shared_ptr<AudioAsset> LoadAudioAsset(const char* filePath); 
+    shared_ptr<AudioAsset> LoadAudioAsset(const char* filePath)
     {
-        
+        LOOM_UNUSED(filePath);
+        return nullptr;
     }
 
     Result UnloadAudioAsset(const shared_ptr<AudioAsset> audioAsset);
     shared_ptr<AssetReaderNode> CreateAudioSource(const shared_ptr<AudioAsset> audioAsset, const AudioNodePtr inputNode);
     Result DestroyAudioSource(const shared_ptr<AssetReaderNode> audioSource);
 
-    const AudioSystemConfig& GetConfig() const override
-    {
-        return _Config;
-    }
-
-    IAudioGraph& GetGraph()
-    {
-        if (_Graph == nullptr)
-            return AudioGraphStub::GetInstance();
-        return *_Graph;
-    }
-
-    IAudioCodec& GetCodec() const override
-    {
-        if (_Decoder == nullptr)
-            return AudioCodecStub::GetInstance();
-        return *_Decoder;
-    }
-
-    IAudioDeviceManager& GetDeviceManager() const override
-    {
-        if (_DeviceManager == nullptr)
-            return AudioDeviceManagerStub::GetInstance();
-        return *_DeviceManager;
-    }
-
-    IAudioResampler& GetResampler() const override
-    {
-        if (_Resampler == nullptr)
-            return AudioResamplerStub::GetInstance();
-        return *_Resampler;
-    }
-
-    IAudioChannelRemapper& GetChannelRemapper() const override
-    {
-        if (_ChannelRemapper == nullptr)
-            return AudioChannelRemapperStub::GetInstance();
-        return *_ChannelRemapper;
-    }
-
-    IAudioBufferProvider& GetBufferProvider() const override
-    {
-        if (_BufferProvider == nullptr)
-            return AudioBufferProviderStub::GetInstance();
-        return *_BufferProvider;
-    }
-
-    Result SetService(IAudioSubsystem* service);
-
+    const AudioSystemConfig& GetConfig() const override;
+    IAudioGraph& GetGraph() const override;
+    IAudioCodec& GetCodec() const override;
+    IAudioDeviceManager& GetDeviceManager() const override;
+    IAudioResampler& GetResampler() const override;
+    IAudioChannelRemapper& GetChannelRemapper() const override;
+    IAudioBufferProvider& GetBufferProvider() const override;
+    
 private:
     AudioSystemConfig _Config;
+    AudioDeviceDescription _CurrentDevice;
     map<shared_ptr<AudioAsset>, set<shared_ptr<AssetReaderNode>>> _AudioSources;
     unique_ptr<IAudioGraph> _Graph;
     unique_ptr<IAudioCodec> _Decoder;

@@ -5,13 +5,13 @@ namespace Loom
 {
 
 IAudioChannelRemapper::IAudioChannelRemapper(IAudioSystem& system)
-    : IAudioSubsystem(system)
+    : IAudioSystemComponent(system)
 {
 }
 
-AudioSubsystemType IAudioChannelRemapper::GetType() const
+AudioSystemComponentType IAudioChannelRemapper::GetType() const
 {
-    return AudioSubsystemType::ChannelRemapper;
+    return AudioSystemComponentType::ChannelRemapper;
 }
 
 AudioChannelRemapperStub::AudioChannelRemapperStub()

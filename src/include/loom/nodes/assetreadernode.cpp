@@ -15,14 +15,14 @@ namespace Loom
     {
     }
 
-    Result AssetReaderNode::Play(float fade = 0.0f)
+    Result AssetReaderNode::Play(float fade)
     {
         _PendingEvent = PlayRequest;
         _FadeInDuration = fade;
         return Update();
     }
 
-    Result AssetReaderNode::Stop(float fade = 0.05f)
+    Result AssetReaderNode::Stop(float fade)
     {
         _PendingEvent = StopRequest;
         _FadeOutDuration = fade;
@@ -182,39 +182,6 @@ namespace Loom
         }
         _FramePosition += destinationBuffer.GetFrameCount();
         return Result::Ok;
-    }
-
-    template <class T>
-    void AssetReaderNode::TransferBuffer(AudioBuffer& destinationBuffer, u32 offset, u32 sizeBeforeWrapAround, u32 sizeAfterWrapAround)
-    {
-        T* destinationData = destinationBuffer.GetData<T>();
-        T* assetData = _Asset->GetBuffer().GetData<T>();
-        sizeBeforeWrapAround /= sizeof(T);
-        sizeAfterWrapAround /= sizeof(T);
-        if (_FadeFunction != nullptr)
-        {
-            _FadeFunction(_FadeGain, _FadeStartTime, _FadeEndTime);
-            if ((_FadeFunction == FadeIn && _FadeGain == 1.0f) || (_FadeFunction == FadeOut && _FadeGain == 0.0f))
-                _FadeFunction = nullptr;
-            if (_FadeGain == 0.0f)
-            {
-                memset(destinationData, 0, destinationBuffer.GetSize());
-            }
-            else
-            {
-                for (u32 i = 0; i < sizeBeforeWrapAround; i++)
-                    destinationData[i] = static_cast<T>(static_cast<float>(assetData[offset + i]) * _FadeGain);
-                for (u32 i = 0; i < sizeAfterWrapAround; i++)
-                    destinationData[sizeBeforeWrapAround + i] = static_cast<T>(static_cast<float>(assetData[i]) * _FadeGain);
-            }
-        }
-        else
-        {
-            for (u32 i = 0; i < sizeBeforeWrapAround; i++)
-                destinationData[i] = assetData[offset + i];
-            for (u32 i = 0; i < sizeAfterWrapAround; i++)
-                destinationData[sizeBeforeWrapAround + i] = assetData[i];
-        }
     }
 
     void AssetReaderNode::ConfigureFade(FadeFunction function, float duration)

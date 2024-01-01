@@ -7,30 +7,29 @@ namespace Loom
 
 AudioSystem::AudioSystem()
     : _Graph(new AudioGraph(GetInterface()))
+    //, _DeviceManager(new MiniAudioDeviceManager(GetInterface()))
 {
+    Result result = GetGraph().Initialize();
+    if (!Ok(result))
+        LOOM_LOG_RESULT(result);
 }
 
 Result AudioSystem::Initialize()
 {
+    // Initialize device manager to get hardware audio format and buffer size
     IAudioDeviceManager& deviceManager = GetDeviceManager();
-    Result result = Result::Unknown;
+    Result result = Result::Ok;
     result = deviceManager.Initialize();
     LOOM_CHECK_RESULT(result);
-    AudioDeviceDescription deviceDescription;
-    result = deviceManager.SelectDefaultPlaybackDevice(deviceDescription);
+    result = deviceManager.SelectDefaultPlaybackDevice(_CurrentDevice);
     LOOM_CHECK_RESULT(result);
-    AudioFormat outputFormat = deviceDescription.bufferTemplate.GetFormat();
-    u32 outputBufferSize = deviceDescription.bufferTemplate.GetSize();
-    _BufferProvider.reset(new AudioBufferPool(GetInterface(), outputFormat, outputBufferSize));
+
+    // Setup buffer provider
+    _BufferProvider.reset(new AudioBufferPool(GetInterface(), _CurrentDevice.audioFormat, _CurrentDevice.bufferSize));
     result = deviceManager.RegisterPlaybackCallback(PlaybackCallback, this);
     LOOM_CHECK_RESULT(result);
 
 
-    // TODO: store the device format
-    //      * buffer size
-    //      * sample format
-    //      * channels
-    //      * frame rate
 
     return result;
 }
@@ -47,45 +46,51 @@ void AudioSystem::PlaybackCallback(AudioBuffer& destinationBuffer, void* userDat
     graph.Execute(destinationBuffer);
 }
 
-Result AudioSystem::SetService(IAudioSubsystem* service)
+const AudioSystemConfig& AudioSystem::GetConfig() const
 {
-    if (service == nullptr)
-        LOOM_RETURN_RESULT(Result::Nullptr);
+    return _Config;
+}
 
-    switch(service->GetType())
-    {
-        case AudioSubsystemType::Codec:
-            if (_Decoder != nullptr)
-                _Decoder->Shutdown();
-            _Decoder.reset(static_cast<IAudioCodec*>(service));
-            return _Decoder->Initialize();
+IAudioGraph& AudioSystem::GetGraph() const
+{
+    if (_Graph == nullptr)
+        return AudioGraphStub::GetInstance();
+    return *_Graph;
+}
 
-        case AudioSubsystemType::BufferProvider:
-            if (_BufferProvider != nullptr)
-                _BufferProvider->Shutdown();
-            _BufferProvider.reset(static_cast<IAudioBufferProvider*>(service));
-            return _BufferProvider->Initialize();
+IAudioCodec& AudioSystem::GetCodec() const
+{
+    if (_Decoder == nullptr)
+        return AudioCodecStub::GetInstance();
+    return *_Decoder;
+}
 
-        case AudioSubsystemType::Resampler:
-            if (_Resampler != nullptr)
-                _Resampler->Shutdown();
-            _Resampler.reset(static_cast<IAudioResampler*>(service));
-            return _Resampler->Initialize();
+IAudioDeviceManager& AudioSystem::GetDeviceManager() const
+{
+    if (_DeviceManager == nullptr)
+        return AudioDeviceManagerStub::GetInstance();
+    return *_DeviceManager;
+}
 
-        case AudioSubsystemType::ChannelRemapper:
-            if (_ChannelRemapper != nullptr)
-                _ChannelRemapper->Shutdown();
-            _ChannelRemapper.reset(static_cast<IAudioChannelRemapper*>(service));
-            return _ChannelRemapper->Initialize();
+IAudioResampler& AudioSystem::GetResampler() const
+{
+    if (_Resampler == nullptr)
+        return AudioResamplerStub::GetInstance();
+    return *_Resampler;
+}
 
-        case AudioSubsystemType::DeviceManager:
-            if (_DeviceManager != nullptr)
-                _DeviceManager->Shutdown();
-            _DeviceManager.reset(static_cast<IAudioDeviceManager*>(service));
-            return _DeviceManager->Initialize();
-        default:
-            LOOM_RETURN_RESULT(Result::InvalidEnumValue);
-    }
+IAudioChannelRemapper& AudioSystem::GetChannelRemapper() const
+{
+    if (_ChannelRemapper == nullptr)
+        return AudioChannelRemapperStub::GetInstance();
+    return *_ChannelRemapper;
+}
+
+IAudioBufferProvider& AudioSystem::GetBufferProvider() const
+{
+    if (_BufferProvider == nullptr)
+        return AudioBufferProviderStub::GetInstance();
+    return *_BufferProvider;
 }
 
 } // namespace Loom

@@ -1,17 +1,17 @@
 #pragma once
 
-#include "loom/interfaces/iaudiosubsystem.h"
+#include "loom/interfaces/iaudiosystemcomponent.h"
 
 namespace Loom
 {
 
 class AudioBuffer;
 
-class IAudioBufferProvider : public IAudioSubsystem
+class IAudioBufferProvider : public IAudioSystemComponent
 {
 public:
     IAudioBufferProvider(IAudioSystem& system);
-    AudioSubsystemType GetType() const final override;
+    AudioSystemComponentType GetType() const final override;
 
     virtual Result AllocateBuffer(AudioBuffer& buffer) = 0;
     virtual Result ReleaseBuffer(AudioBuffer& buffer) = 0;

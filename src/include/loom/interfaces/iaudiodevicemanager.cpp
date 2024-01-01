@@ -7,13 +7,13 @@ namespace Loom
 {
 
 IAudioDeviceManager::IAudioDeviceManager(IAudioSystem& system)
-    : IAudioSubsystem(system)
+    : IAudioSystemComponent(system)
 {
 }
 
-AudioSubsystemType IAudioDeviceManager::GetType() const
+AudioSystemComponentType IAudioDeviceManager::GetType() const
 {
-    return AudioSubsystemType::DeviceManager;
+    return AudioSystemComponentType::DeviceManager;
 }
 
 AudioDeviceManagerStub::AudioDeviceManagerStub()

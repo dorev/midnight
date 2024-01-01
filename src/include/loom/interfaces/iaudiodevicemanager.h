@@ -1,6 +1,6 @@
 #pragma once
 
-#include "loom/interfaces/iaudiosubsystem.h"
+#include "loom/interfaces/iaudiosystemcomponent.h"
 #include "loom/audiobuffer.h"
 
 namespace Loom
@@ -16,18 +16,19 @@ struct AudioDeviceDescription
 {
     string name;
     bool defaultDevice;
-    AudioBuffer bufferTemplate;
+    u32 bufferSize;
+    AudioFormat audioFormat;
     AudioDeviceType deviceType;
 };
 
 class AudioBuffer;
 using AudioDevicePlaybackCallback = void(*)(AudioBuffer& outputBuffer, void* userData);
 
-class IAudioDeviceManager : public IAudioSubsystem
+class IAudioDeviceManager : public IAudioSystemComponent
 {
 public:
     IAudioDeviceManager(IAudioSystem& system);
-    AudioSubsystemType GetType() const final override;
+    AudioSystemComponentType GetType() const final override;
     virtual Result RegisterPlaybackCallback(AudioDevicePlaybackCallback callback, void* userData) = 0;
     virtual Result EnumerateDevices(u32& deviceCount, const AudioDeviceDescription*& devices) = 0;
     virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;

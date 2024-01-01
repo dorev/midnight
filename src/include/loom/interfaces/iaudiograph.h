@@ -1,6 +1,6 @@
 #pragma once
 
-#include "loom/interfaces/iaudiosubsystem.h"
+#include "loom/interfaces/iaudiosystemcomponent.h"
 #include "loom/nodes/audionode.h"
 
 namespace Loom
@@ -15,11 +15,11 @@ enum class AudioGraphState
 
 class AudioBuffer;
 
-class IAudioGraph : public IAudioSubsystem
+class IAudioGraph : public IAudioSystemComponent
 {
 public:
     IAudioGraph(IAudioSystem& system);
-    AudioSubsystemType GetType() const final override;
+    AudioSystemComponentType GetType() const final override;
 
     virtual Result Execute(AudioBuffer& outputBuffer) = 0;
     virtual AudioGraphState GetState() const = 0;

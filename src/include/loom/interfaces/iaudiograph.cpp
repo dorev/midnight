@@ -6,13 +6,13 @@ namespace Loom
 {
 
 IAudioGraph::IAudioGraph(IAudioSystem& system)
-    : IAudioSubsystem(system)
+    : IAudioSystemComponent(system)
 {
 }
 
-AudioSubsystemType IAudioGraph::GetType() const
+AudioSystemComponentType IAudioGraph::GetType() const
 {
-    return AudioSubsystemType::Graph;
+    return AudioSystemComponentType::Graph;
 }
 
 void IAudioGraph::VisitNode(const AudioNodePtr& node)

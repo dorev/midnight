@@ -10,6 +10,11 @@
 namespace Loom
 {
 
+IAudioSystem::IAudioSystem()
+    : IAudioSystemComponent(*this)
+{
+}
+
 IAudioSystem::~IAudioSystem()
 {
 }
@@ -22,6 +27,16 @@ IAudioSystem& IAudioSystem::GetStub()
 IAudioSystem& IAudioSystem::GetInterface()
 {
     return *this;
+}
+
+AudioSystemComponentType IAudioSystem::GetType() const
+{
+    return AudioSystemComponentType::System;
+}
+
+const char* IAudioSystem::GetName() const
+{
+    return "System";
 }
 
 IAudioSystem& AudioSystemStub::GetInstance()
@@ -37,7 +52,7 @@ const AudioSystemConfig& AudioSystemStub::GetConfig() const
     return dummyConfig;
 }
 
-IAudioGraph& AudioSystemStub::GetGraph()
+IAudioGraph& AudioSystemStub::GetGraph() const
 {
     LOOM_LOG_RESULT(Result::CallingStub);
     return AudioGraphStub::GetInstance();

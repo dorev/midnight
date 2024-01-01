@@ -32,7 +32,7 @@ Result AudioBufferPool::AllocateBuffer(AudioBuffer& buffer)
     u32 blockIndex = currentIndex / BlockSize;
     u32 bufferIndex = currentIndex % BlockSize;
     u8* bufferData = _Blocks[blockIndex]->GetBufferData(bufferIndex);
-    buffer = AudioBuffer(GetSystemInterface(), _AudioFormat, bufferData, _BufferCapacity);
+    buffer = AudioBuffer(&GetSystemInterface(), _AudioFormat, bufferData, _BufferCapacity);
     return Result::Ok;
 }
 

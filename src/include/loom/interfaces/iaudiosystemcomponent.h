@@ -7,8 +7,9 @@
 namespace Loom
 {
 
-enum class AudioSubsystemType
+enum class AudioSystemComponentType
 {
+    System,
     Graph,
     Codec,
     Resampler,
@@ -19,16 +20,17 @@ enum class AudioSubsystemType
 
 class IAudioSystem;
 
-class IAudioSubsystem
+class IAudioSystemComponent
 {
 public:
-    virtual AudioSubsystemType GetType() const = 0;
+    IAudioSystemComponent(IAudioSystem& system);
+    IAudioSystemComponent(const IAudioSystemComponent&) = delete;
+    IAudioSystemComponent& operator=(const IAudioSystemComponent&) = delete;
+    virtual AudioSystemComponentType GetType() const = 0;
     virtual const char* GetName() const = 0;
-    IAudioSubsystem(IAudioSystem& system);
-    IAudioSubsystem(const IAudioSubsystem&) = delete;
-    IAudioSubsystem& operator=(const IAudioSubsystem&) = delete;
-    virtual ~IAudioSubsystem();
+    virtual ~IAudioSystemComponent();
     virtual Result Initialize();
+    virtual Result Update();
     virtual void Shutdown();
 
 protected:

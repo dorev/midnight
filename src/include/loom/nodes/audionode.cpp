@@ -6,7 +6,6 @@ namespace Loom
 
 AudioNode::AudioNode(IAudioSystem& system)
     : _System(system)
-    , _Buffer(system)
     , _State(AudioNodeState::Idle)
 {
 }

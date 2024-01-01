@@ -1,6 +1,6 @@
 #pragma once
 
-#include "loom/interfaces/iaudiosubsystem.h"
+#include "loom/interfaces/iaudiosystemcomponent.h"
 
 namespace Loom
 {
@@ -8,11 +8,11 @@ namespace Loom
 class AudioBuffer;
 class AudioAsset;
 
-class IAudioCodec : public IAudioSubsystem
+class IAudioCodec : public IAudioSystemComponent
 {
 public:
     IAudioCodec(IAudioSystem& system);
-    AudioSubsystemType GetType() const final override;
+    AudioSystemComponentType GetType() const final override;
     virtual Result LoadAsset(const char* filePath, AudioAsset& audioFile) = 0;
 };
 

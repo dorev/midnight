@@ -22,7 +22,6 @@ class AudioAsset
 public:
     AudioAsset(IAudioSystem& system, const char* name, const char* filePath)
         : _System(system)
-        , _Buffer(system)
         , _Name(name)
         , _FilePath(filePath)
         , _State(AudioAssetState::Unloaded)
