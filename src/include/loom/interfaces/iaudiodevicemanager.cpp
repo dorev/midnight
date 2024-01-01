@@ -38,6 +38,11 @@ Result AudioDeviceManagerStub::RegisterPlaybackCallback(AudioDevicePlaybackCallb
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
+Result AudioDeviceManagerStub::RegisterErrorCallback(AudioDeviceErrorCallback, void*)
+{
+    LOOM_RETURN_RESULT(Result::CallingStub);
+}
+
 Result AudioDeviceManagerStub::EnumerateDevices(u32&, const AudioDeviceDescription*&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);

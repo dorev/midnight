@@ -24,11 +24,19 @@ public:
     static void PlaybackCallback(AudioBuffer& destinationBuffer, void* userData);
     Result Initialize() override;
 
-    shared_ptr<AudioAsset> LoadAudioAsset(const char* filePath)
+    shared_ptr<AudioAsset> CreateAudioAsset(const char* filePath)
     {
+        // check the current device format
         LOOM_UNUSED(filePath);
         return nullptr;
     }
+
+    Result LoadAudioAsset(AudioAsset& asset)
+    {
+        // check asset store if already loaded or loading
+        // start loading according to 
+    }
+
 
     Result UnloadAudioAsset(const shared_ptr<AudioAsset> audioAsset);
     shared_ptr<AssetReaderNode> CreateAudioSource(const shared_ptr<AudioAsset> audioAsset, const AudioNodePtr inputNode);
@@ -41,7 +49,7 @@ public:
     IAudioResampler& GetResampler() const override;
     IAudioChannelRemapper& GetChannelRemapper() const override;
     IAudioBufferProvider& GetBufferProvider() const override;
-    
+
 private:
     AudioSystemConfig _Config;
     AudioDeviceDescription _CurrentDevice;

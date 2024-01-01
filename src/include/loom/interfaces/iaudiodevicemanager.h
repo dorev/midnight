@@ -23,6 +23,7 @@ struct AudioDeviceDescription
 
 class AudioBuffer;
 using AudioDevicePlaybackCallback = void(*)(AudioBuffer& outputBuffer, void* userData);
+using AudioDeviceErrorCallback = void(*)(Result result, void* userData);
 
 class IAudioDeviceManager : public IAudioSystemComponent
 {
@@ -30,6 +31,7 @@ public:
     IAudioDeviceManager(IAudioSystem& system);
     AudioSystemComponentType GetType() const final override;
     virtual Result RegisterPlaybackCallback(AudioDevicePlaybackCallback callback, void* userData) = 0;
+    virtual Result RegisterErrorCallback(AudioDeviceErrorCallback callback, void* userData) = 0;
     virtual Result EnumerateDevices(u32& deviceCount, const AudioDeviceDescription*& devices) = 0;
     virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;
     virtual Result SelectDefaultPlaybackDevice(AudioDeviceDescription& defaultDeviceDescription) = 0;
@@ -44,6 +46,7 @@ public:
     static AudioDeviceManagerStub& GetInstance();
     const char* GetName() const final override;
     Result RegisterPlaybackCallback(AudioDevicePlaybackCallback, void*) final override;
+    Result RegisterErrorCallback(AudioDeviceErrorCallback, void*) final override;
     Result EnumerateDevices(u32&, const AudioDeviceDescription*&) final override;
     Result SelectPlaybackDevice(const AudioDeviceDescription*) final override;
     Result SelectDefaultPlaybackDevice(AudioDeviceDescription&) final override;

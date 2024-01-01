@@ -8,7 +8,7 @@ namespace Loom
 
 enum class AudioAssetState
 {
-    Invalid,
+    InvalidPath,
     Unloaded,
     Loading,
     Loaded,
@@ -26,8 +26,10 @@ public:
         , _FilePath(filePath)
         , _State(AudioAssetState::Unloaded)
     {
-        // Calculate duration
     }
+
+    AudioAsset(const AudioAsset& other) = delete;
+    AudioAsset& operator=(const AudioAsset& other) = delete;
 
     virtual ~AudioAsset()
     {
@@ -35,11 +37,13 @@ public:
 
     Result Load()
     {
+        _System.LoadAsset(*this);
         return Result::NotYetImplemented;
     }
 
     Result Unload()
     {
+        _System.UnloadAsset(*this);
         return Result::NotYetImplemented;
     }
 

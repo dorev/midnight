@@ -156,7 +156,11 @@ namespace Loom
         }
         AudioBuffer assetBuffer = _Asset->GetBuffer();
         if (!assetBuffer.FormatMatches(destinationBuffer))
+        {
+            // TODO: poke system for resampling of the asset,
+            //       return to the loading state
             LOOM_RETURN_RESULT(Result::BufferFormatMismatch);
+        }
         u32 offset = _FramePosition * assetBuffer.GetChannels() * assetBuffer.GetSampleSize();
         u32 sizeBeforeWrapAround = destinationBuffer.GetSize();
         u32 sizeAfterWrapAround = 0;
