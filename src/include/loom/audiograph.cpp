@@ -1,7 +1,7 @@
 #include "loom/audiograph.h"
 #include "loom/nodes/audionode.h"
 #include "loom/interfaces/iaudiosystem.h"
-#include "loom/nodes/mixingnode.h"
+#include "loom/nodes/mixernode.h"
 
 namespace Loom
 {
@@ -165,7 +165,7 @@ Result AudioGraph::UpdateNodes()
         else
         {
             // A new output node must be created
-            _OutputNode = shared_ptr_cast<AudioNode>(make_shared<MixingNode>(GetSystemInterface()));
+            _OutputNode = shared_ptr_cast<AudioNode>(make_shared<MixerNode>(GetSystemInterface()));
             _Nodes.insert(_OutputNode);
         }
         for (AudioNodePtr node : outputNodes)

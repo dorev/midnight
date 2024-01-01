@@ -12,7 +12,7 @@ namespace Loom
 enum class AudioNodeState
 {
     WaitingDependencies,
-    Bypass,
+    BypassNode,
     Paused,
     ReadyToExecute,
     BusyExecuting,
@@ -50,7 +50,7 @@ protected:
     AudioBuffer& GetBuffer();
     IAudioSystem& GetSystem();
     void ReleaseBuffer();
-    bool Bypass() const;
+    bool BypassNode() const;
     Result ExecuteInputNodes(AudioBuffer& destinationBuffer);
 
 private:

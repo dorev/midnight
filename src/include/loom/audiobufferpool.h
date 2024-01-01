@@ -1,21 +1,21 @@
 #pragma once
 
-#include "loom/defines.h"
-#include "loom/types.h"
-#include "loom/result.h"
-
 #include "loom/interfaces/iaudiobufferprovider.h"
+#include "loom/audioformat.h"
 
 namespace Loom
 {
 
 class AudioBuffer;
+class IAudioSystem;
 
-template <u32 BlockSize>
-class AudioBufferPool : IAudioBufferProvider
+class AudioBufferPool : public IAudioBufferProvider
 {
 public:
-    AudioBufferPool(u32 bufferCapacity);
+    static constexpr u32 BlockSize = 32;
+
+    AudioBufferPool(IAudioSystem& system, AudioFormat audioFormat, u32 bufferCapacity);
+    const char* GetName() const override;
     Result AllocateBuffer(AudioBuffer& buffer) override;
     Result ReleaseBuffer(AudioBuffer& buffer) override;
 
@@ -48,6 +48,7 @@ private:
 private:
     mutex _ExpansionMutex;
     u32 _BufferCapacity;
+    AudioFormat _AudioFormat;
     atomic<u32> _Head;
     vector<unique_ptr<Block>> _Blocks;
     vector<u32> _NextBufferIndex;

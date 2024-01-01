@@ -150,6 +150,11 @@ SampleFormat AudioBuffer::GetSampleFormat() const
     return _Format.sampleFormat;
 }
 
+AudioFormat AudioBuffer::GetFormat() const
+{
+    return _Format;
+}
+
 u32 AudioBuffer::GetSampleSize() const
 {
     switch (GetSampleFormat())
@@ -172,6 +177,11 @@ void AudioBuffer::DecrementRefCount()
         delete _RefCount;
         _RefCount = nullptr;
     }
+}
+
+u32 AudioBuffer::GetSize() const
+{
+    return _Size;
 }
 
 } // namespace Loom

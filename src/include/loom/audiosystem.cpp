@@ -1,5 +1,6 @@
 #include "loom/audiosystem.h"
 #include "loom/audiograph.h"
+#include "loom/audiobufferpool.h"
 
 namespace Loom
 {
@@ -15,10 +16,16 @@ Result AudioSystem::Initialize()
     Result result = Result::Unknown;
     result = deviceManager.Initialize();
     LOOM_CHECK_RESULT(result);
-    result = deviceManager.SelectDefaultPlaybackDevice();
+    AudioDeviceDescription deviceDescription;
+    result = deviceManager.SelectDefaultPlaybackDevice(deviceDescription);
     LOOM_CHECK_RESULT(result);
+    AudioFormat outputFormat = deviceDescription.bufferTemplate.GetFormat();
+    u32 outputBufferSize = deviceDescription.bufferTemplate.GetSize();
+    _BufferProvider.reset(new AudioBufferPool(GetInterface(), outputFormat, outputBufferSize));
     result = deviceManager.RegisterPlaybackCallback(PlaybackCallback, this);
     LOOM_CHECK_RESULT(result);
+
+
     // TODO: store the device format
     //      * buffer size
     //      * sample format

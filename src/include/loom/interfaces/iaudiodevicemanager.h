@@ -31,7 +31,7 @@ public:
     virtual Result RegisterPlaybackCallback(AudioDevicePlaybackCallback callback, void* userData) = 0;
     virtual Result EnumerateDevices(u32& deviceCount, const AudioDeviceDescription*& devices) = 0;
     virtual Result SelectPlaybackDevice(const AudioDeviceDescription* device) = 0;
-    virtual Result SelectDefaultPlaybackDevice() = 0;
+    virtual Result SelectDefaultPlaybackDevice(AudioDeviceDescription& defaultDeviceDescription) = 0;
     virtual Result Start() = 0;
     virtual Result Stop() = 0;
 };
@@ -45,7 +45,7 @@ public:
     Result RegisterPlaybackCallback(AudioDevicePlaybackCallback, void*) final override;
     Result EnumerateDevices(u32&, const AudioDeviceDescription*&) final override;
     Result SelectPlaybackDevice(const AudioDeviceDescription*) final override;
-    Result SelectDefaultPlaybackDevice() final override;
+    Result SelectDefaultPlaybackDevice(AudioDeviceDescription&) final override;
     Result Start() final override;
     Result Stop() final override;
 };

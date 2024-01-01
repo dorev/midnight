@@ -1,25 +1,25 @@
-#include "loom/nodes/mixingnode.h"
+#include "loom/nodes/mixernode.h"
 
 namespace Loom
 {
 
-MixingNode::MixingNode(IAudioSystem& system)
+MixerNode::MixerNode(IAudioSystem& system)
     : AudioNode(system)
     , _Gain("Gain", AudioNodeParameterType::Float32, 1.0f, true, 0.0f, 10.0f)
 {
 }
 
-const char* MixingNode::GetName() const
+const char* MixerNode::GetName() const
 {
     return "MixingNode";
 }
 
-u64 MixingNode::GetTypeId() const
+u64 MixerNode::GetTypeId() const
 {
     return AudioNodeId::MixingNode;
 }
 
-Result MixingNode::Execute(AudioBuffer& destinationBuffer)
+Result MixerNode::Execute(AudioBuffer& destinationBuffer)
 {
     Result result = ExecuteInputNodes(destinationBuffer);
     LOOM_CHECK_RESULT(result);

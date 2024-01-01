@@ -1,42 +1,12 @@
 #pragma once
 
-#include "loom/nodes/audionode.h"
+#include "loom/nodes/assetreadernode.h"
+#include "loom/interfaces/iaudiosystem.h"
 #include "loom/audioasset.h"
-#include "loom/time.h"
-#include "loom/fade.h"
 
 namespace Loom
 {
-
-class AssetReadingNode : public AudioNode
-{
-public:
-    static constexpr float VirtualFadeDuration = 0.05f;
-
-    enum State
-    {
-        Invalid,
-        Initializing,
-        Loading,
-        Playing,
-        ToStop,
-        Stopping,
-        Stopped,
-        Virtualizing,
-        Virtual,
-        Devirtualizing,
-        Unloading,
-        Unloaded
-    };
-
-    enum Event
-    {
-        NoEvent,
-        Play,
-        Stop,
-    };
-
-    AssetReadingNode(IAudioSystem& system, shared_ptr<AudioAsset> asset)
+    AssetReaderNode::AssetReaderNode(IAudioSystem& system, shared_ptr<AudioAsset> asset)
         : AudioNode(system)
         , _Asset(asset)
         , _State(Initializing)
@@ -45,21 +15,21 @@ public:
     {
     }
 
-    Result Play(float fade = 0.0f)
+    Result AssetReaderNode::Play(float fade = 0.0f)
     {
-        _PendingEvent = Play;
+        _PendingEvent = PlayRequest;
         _FadeInDuration = fade;
         return Update();
     }
 
-    Result Stop(float fade = 0.05f)
+    Result AssetReaderNode::Stop(float fade = 0.05f)
     {
-        _PendingEvent = Stop;
+        _PendingEvent = StopRequest;
         _FadeOutDuration = fade;
         return Update();
     }
 
-    Result LoadAsset(bool& loaded)
+    Result AssetReaderNode::LoadAsset(bool& loaded)
     {
         if (_Asset != nullptr)
         {
@@ -70,7 +40,7 @@ public:
                 return Result::Ok;
             case AudioAssetState::Unloaded:
                 _Asset->Load();
-                [[fallthrough]]
+                [[fallthrough]];
             case AudioAssetState::Loading:
             case AudioAssetState::Unloading:
                 loaded = false;
@@ -83,7 +53,7 @@ public:
         LOOM_RETURN_RESULT(Result::InvalidFile);
     }
 
-    Result Update()
+    Result AssetReaderNode::Update()
     {
         switch(_State)
         {
@@ -150,7 +120,7 @@ public:
         }
     }
 
-    Result Execute(AudioBuffer& destinationBuffer) override
+    Result AssetReaderNode::Execute(AudioBuffer& destinationBuffer)
     {
         switch(_State)
         {
@@ -164,19 +134,19 @@ public:
             if (_FadeGain == 0.0f)
             {
                 _State = Stopped;
-                return Result::Ignore;
+                return Result::NodeIsVirtual;
             }
             break;
         case Virtualizing:
             if (_FadeGain == 0.0f)
             {
                 _State = Virtual;
-                return Result::Ignore;
+                return Result::NodeIsVirtual;
             }
             break;
         case Stopped:
         case Virtual:
-            return Result::Ignore;
+            return Result::NodeIsVirtual;
         case Unloading:
         case Unloaded:
             LOOM_RETURN_RESULT(Result::NotYetImplemented);
@@ -215,7 +185,7 @@ public:
     }
 
     template <class T>
-    void TransferBuffer(AudioBuffer& destinationBuffer, u32 offset, u32 sizeBeforeWrapAround, u32 sizeAfterWrapAround)
+    void AssetReaderNode::TransferBuffer(AudioBuffer& destinationBuffer, u32 offset, u32 sizeBeforeWrapAround, u32 sizeAfterWrapAround)
     {
         T* destinationData = destinationBuffer.GetData<T>();
         T* assetData = _Asset->GetBuffer().GetData<T>();
@@ -233,9 +203,9 @@ public:
             else
             {
                 for (u32 i = 0; i < sizeBeforeWrapAround; i++)
-                    destinationData[i] = assetData[offset + i] * _FadeGain;
+                    destinationData[i] = static_cast<T>(static_cast<float>(assetData[offset + i]) * _FadeGain);
                 for (u32 i = 0; i < sizeAfterWrapAround; i++)
-                    destinationData[sizeBeforeWrapAround + i] = assetData[i] * _FadeGain;
+                    destinationData[sizeBeforeWrapAround + i] = static_cast<T>(static_cast<float>(assetData[i]) * _FadeGain);
             }
         }
         else
@@ -247,7 +217,7 @@ public:
         }
     }
 
-    void ConfigureFade(FadeFunction function, float duration)
+    void AssetReaderNode::ConfigureFade(FadeFunction function, float duration)
     {
         _FadeFunction = function;
         if (function != nullptr)
@@ -261,91 +231,66 @@ public:
         }
     }
 
-    const char* GetName() const override
+    const char* AssetReaderNode::GetName() const
     {
         return "AudioSource";
     }
 
-    u64 GetTypeId() const override
+    u64 AssetReaderNode::GetTypeId() const
     {
         return AudioNodeId::AudioSource;
     }
 
-    Result SeekFrame(u32 frame)
+    Result AssetReaderNode::SeekFrame(u32 frame)
     {
         LOOM_UNUSED(frame);
         LOOM_RETURN_RESULT(Result::NotYetImplemented);
     }
 
-    Result SeekTime(float seconds)
+    Result AssetReaderNode::SeekTime(float seconds)
     {
         LOOM_UNUSED(seconds);
         LOOM_RETURN_RESULT(Result::NotYetImplemented);
     }
 
-    u32 GetFramePosition() const
+    u32 AssetReaderNode::GetFramePosition() const
     {
         return _FramePosition;
     }
 
-    float GetTimePosition() const
+    float AssetReaderNode::GetTimePosition() const
     {
         return GetFramePosition() / _Asset->GetFrames() * _Asset->GetDuration();
     }
 
-    void SetLoop(bool loop)
+    void AssetReaderNode::SetLoop(bool loop)
     {
         _Loop = loop;
     }
 
-    bool IsLooping() const
+    bool AssetReaderNode::IsLooping() const
     {
         return _Loop;
     }
 
-    bool IsVirtual() const
+    bool AssetReaderNode::IsVirtual() const
     {
-        return Bypass();
+        return BypassNode();
     }
 
-    AssetReadingNode::State GetState() const
+    bool AssetReaderNode::PlayIsRequested() const
     {
-        return _State;
+        return _PendingEvent.load() == PlayRequest;
     }
 
-private:
-    bool PlayIsRequested() const
+    bool AssetReaderNode::StopIsRequested() const
     {
-        return _PendingEvent.load() == Play;
+        return _PendingEvent.load() == StopRequest;
     }
 
-    bool StopIsRequested() const
-    {
-        return _PendingEvent.load() == Stop;
-    }
-
-    bool AssetIsLoaded() const
+    bool AssetReaderNode::AssetIsLoaded() const
     {
         return _Asset != nullptr && _Asset->GetState() == AudioAssetState::Loaded;
     }
-
-private:
-    u32 _Id;
-    u32 _FramePosition;
-    u32 _Priority;
-    bool _Loop;
-    float _Volume;
-    shared_ptr<AudioAsset> _Asset;
-
-    atomic<AssetReadingNode::Event> _PendingEvent;
-    atomic<AssetReadingNode::State> _State;
-
-    float _FadeGain;
-    float _FadeInDuration;
-    float _FadeOutDuration;
-    u64 _FadeStartTime;
-    u64 _FadeEndTime;
-    FadeFunction _FadeFunction;
-};
 
 } // namespace Loom

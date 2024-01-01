@@ -9,7 +9,7 @@ namespace Loom
 class AudioBuffer
 {
 public:
-    AudioBuffer(IAudioSystem& system, AudioFormat format = AudioFormat(), u8* data = nullptr, u32 capacity = 0);
+    AudioBuffer(IAudioSystem& system = IAudioSystem::GetStub(), AudioFormat format = AudioFormat(), u8* data = nullptr, u32 capacity = 0);
     AudioBuffer(const AudioBuffer& other);
     AudioBuffer& operator=(const AudioBuffer& other);
     virtual ~AudioBuffer();

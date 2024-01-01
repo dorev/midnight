@@ -79,7 +79,7 @@ void AudioNode::ReleaseBuffer()
     _Buffer.Release();
 }
 
-bool AudioNode::Bypass() const
+bool AudioNode::BypassNode() const
 {
     return _Bypass;
 }
@@ -88,20 +88,43 @@ Result AudioNode::ExecuteInputNodes(AudioBuffer& destinationBuffer)
 {
     if (_InputNodes.empty())
         LOOM_RETURN_RESULT(Result::NoData);
+    vector<AudioBuffer> buffersToMix;
+    buffersToMix.reserve(_InputNodes.size());
+    AudioBuffer tmpBuffer = destinationBuffer;
     for (auto itr = _InputNodes.begin(); itr != _InputNodes.end(); itr++)
     {
         AudioNodePtr node = *itr;
-        node->Execute(destinationBuffer);
-        if (itr == _InputNodes.begin())
+        Result result = node->Execute(tmpBuffer);
+        if (Ok(result))
         {
-            _Buffer = destinationBuffer;
+            buffersToMix.emplace_back(tmpBuffer);
+            tmpBuffer.Release();
         }
-        else
+        else if (result != Result::NodeIsVirtual)
         {
-            Result result = _Buffer.AddSamplesFrom(destinationBuffer);
-            LOOM_CHECK_RESULT(result);
+            LOOM_LOG_RESULT(result);
         }
-        destinationBuffer.Release();
+    }
+    if (buffersToMix.empty())
+    {
+        return Result::NoData;
+    }
+    else
+    {
+        for (auto itr = buffersToMix.begin(); itr != buffersToMix.end(); itr++)
+        {
+            AudioBuffer& buffer = *itr;
+            if (itr == buffersToMix.begin())
+            {
+                _Buffer = buffer;
+            }
+            else
+            {
+                Result result = _Buffer.AddSamplesFrom(buffer);
+                if (!Ok(result))
+                    LOOM_LOG_RESULT(result);
+            }
+        }
     }
     destinationBuffer = _Buffer;
     return Result::Ok;

@@ -48,7 +48,7 @@ Result AudioDeviceManagerStub::SelectPlaybackDevice(const AudioDeviceDescription
     LOOM_RETURN_RESULT(Result::CallingStub);
 }
 
-Result AudioDeviceManagerStub::SelectDefaultPlaybackDevice()
+Result AudioDeviceManagerStub::SelectDefaultPlaybackDevice(AudioDeviceDescription&)
 {
     LOOM_RETURN_RESULT(Result::CallingStub);
 }

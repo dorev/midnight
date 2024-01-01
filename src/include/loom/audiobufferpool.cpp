@@ -1,43 +1,24 @@
 #include "loom/audiobufferpool.h"
+#include "loom/audiobuffer.h"
 
 namespace Loom
 {
 
-template <u32 BlockSize>
-AudioBufferPool<BlockSize>::Block::Block(u32 bufferSize)
-    : _Data(new u8[bufferSize * BlockSize])
-    , _BufferSize(bufferSize)
-{
-    if (_Data == nullptr)
-        LOOM_LOG_ERROR("Failed to allocate buffer block!");
-}
-
-template <u32 BlockSize>
-AudioBufferPool<BlockSize>::Block::~Block()
-{
-    if (_Data != nullptr)
-        delete[] _Data;
-}
-
-template <u32 BlockSize>
-u8* AudioBufferPool<BlockSize>::Block::GetBufferData(u32 index)
-{
-    if (_Data != nullptr)
-        return &_Data[_BufferSize * index];
-    else
-        return nullptr;
-}
-
-template <u32 BlockSize>
-AudioBufferPool<BlockSize>::AudioBufferPool(u32 bufferCapacity)
-    : _BufferCapacity(bufferCapacity)
+AudioBufferPool::AudioBufferPool(IAudioSystem& system, AudioFormat audioFormat, u32 bufferCapacity)
+    : IAudioBufferProvider(system)
+    , _AudioFormat(audioFormat)
+    , _BufferCapacity(bufferCapacity)
     , _Head(0)
 {
     InitializeNewBlock();
 }
 
-template <u32 BlockSize>
-Result AudioBufferPool<BlockSize>::AllocateBuffer(AudioBuffer& buffer)
+const char* AudioBufferPool::GetName() const
+{
+    return "AudioBufferPool";
+}
+
+Result AudioBufferPool::AllocateBuffer(AudioBuffer& buffer)
 {
     u32 currentIndex = TailSentinel;
     do
@@ -51,12 +32,11 @@ Result AudioBufferPool<BlockSize>::AllocateBuffer(AudioBuffer& buffer)
     u32 blockIndex = currentIndex / BlockSize;
     u32 bufferIndex = currentIndex % BlockSize;
     u8* bufferData = _Blocks[blockIndex]->GetBufferData(bufferIndex);
-    buffer = AudioBuffer(AudioFormat::NotSpecified, &this, bufferData, _BufferCapacity);
+    buffer = AudioBuffer(GetSystemInterface(), _AudioFormat, bufferData, _BufferCapacity);
     return Result::Ok;
 }
 
-template <u32 BlockSize>
-Result AudioBufferPool<BlockSize>::ReleaseBuffer(AudioBuffer& buffer)
+Result AudioBufferPool::ReleaseBuffer(AudioBuffer& buffer)
 {
     u8* data = buffer.GetData();
     if (data == nullptr)
@@ -79,38 +59,35 @@ Result AudioBufferPool<BlockSize>::ReleaseBuffer(AudioBuffer& buffer)
     return Result::Ok;
 }
 
-template <u32 BlockSize>
-void AudioBufferPool<BlockSize>::ExpandPool(u32& currentIndex)
+void AudioBufferPool::ExpandPool(u32& currentIndex)
 {
     scoped_lock lock(_ExpansionMutex);
     if (_Head == TailSentinel)
     {
-        u32 tailIndexFix = _Blocks.Size() * BlockSize;
-        _NextBufferIndex[_NextBufferIndex.Size() - 1] = tailIndexFix;
+        u32 tailIndexFix = static_cast<u32>(_Blocks.size()) * BlockSize;
+        _NextBufferIndex[static_cast<u32>(_NextBufferIndex.size()) - 1] = tailIndexFix;
         _Head = tailIndexFix;
         currentIndex = tailIndexFix;
         InitializeNewBlock();
     }
 }
 
-template <u32 BlockSize>
-typename AudioBufferPool<BlockSize>::Block* AudioBufferPool<BlockSize>::InitializeNewBlock()
+typename AudioBufferPool::Block* AudioBufferPool::InitializeNewBlock()
 {
     Block* block = new Block(_BufferCapacity);
-    _Blocks.EmplaceBack(block);
-    u32 baseIndex = BlockSize * (_Blocks.Size() - 1);
+    _Blocks.emplace_back(block);
+    u32 baseIndex = BlockSize * (static_cast<u32>(_Blocks.size()) - 1);
     for (u32 i = 0; i < BlockSize; ++i)
-        _NextBufferIndex.PushBack(baseIndex + i + 1);
-    _NextBufferIndex[_NextBufferIndex.Size() - 1] = TailSentinel;
+        _NextBufferIndex.push_back(baseIndex + i + 1);
+    _NextBufferIndex[_NextBufferIndex.size() - 1] = TailSentinel;
     return block;
 }
 
-template <u32 BlockSize>
-bool AudioBufferPool<BlockSize>::FindBlockIndex(u8* pointer, Block*& block, u32& blockIndex)
+bool AudioBufferPool::FindBlockIndex(u8* pointer, Block*& block, u32& blockIndex)
 {
-    for (blockIndex = 0; blockIndex < m_Blocks.size(); ++blockIndex)
+    for (blockIndex = 0; blockIndex < static_cast<u32>(_Blocks.size()); ++blockIndex)
     {
-        block= _Blocks[blockIndex]->get();
+        block= _Blocks[blockIndex].get();
         u8* blockStart = block->GetBufferData(0);
         u8* blockEnd = blockStart + BlockSize * _BufferCapacity;
         if (pointer >= blockStart && pointer < blockEnd)
@@ -121,16 +98,37 @@ bool AudioBufferPool<BlockSize>::FindBlockIndex(u8* pointer, Block*& block, u32&
     return false;
 }
 
-template <u32 BlockSize>
-bool AudioBufferPool<BlockSize>::FindBufferIndex(u8* pointer, Block* block, u32& bufferIndex)
+bool AudioBufferPool::FindBufferIndex(u8* pointer, Block* block, u32& bufferIndex)
 {
     for (bufferIndex = 0; bufferIndex < BlockSize; ++bufferIndex)
     {
-        if (buffer->GetBufferData(bufferIndex) == pointer)
+        if (block->GetBufferData(bufferIndex) == pointer)
             return true;
     }
     bufferIndex = TailSentinel;
     return false;
+}
+
+AudioBufferPool::Block::Block(u32 bufferSize)
+    : _Data(new u8[bufferSize * BlockSize])
+    , _BufferSize(bufferSize)
+{
+    if (_Data == nullptr)
+        LOOM_LOG_ERROR("Failed to allocate buffer block!");
+}
+
+AudioBufferPool::Block::~Block()
+{
+    if (_Data != nullptr)
+        delete[] _Data;
+}
+
+u8* AudioBufferPool::Block::GetBufferData(u32 index)
+{
+    if (_Data != nullptr)
+        return &_Data[_BufferSize * index];
+    else
+        return nullptr;
 }
 
 } // namespace Loom

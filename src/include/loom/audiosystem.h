@@ -13,7 +13,7 @@ namespace Loom
 {
 
 class AudioNode;
-class AssetReadingNode;
+class AssetReaderNode;
 class AudioAsset;
 
 class AudioSystem : public IAudioSystem
@@ -26,10 +26,14 @@ public:
     static void PlaybackCallback(AudioBuffer& destinationBuffer, void* userData);
 
     Result Shutdown();
-    shared_ptr<AudioAsset> LoadAudioAsset(const char* filePath);
+    shared_ptr<AudioAsset> LoadAudioAsset(const char* filePath); 
+    {
+        
+    }
+
     Result UnloadAudioAsset(const shared_ptr<AudioAsset> audioAsset);
-    shared_ptr<AssetReadingNode> CreateAudioSource(const shared_ptr<AudioAsset> audioAsset, const AudioNodePtr inputNode);
-    Result DestroyAudioSource(const shared_ptr<AssetReadingNode> audioSource);
+    shared_ptr<AssetReaderNode> CreateAudioSource(const shared_ptr<AudioAsset> audioAsset, const AudioNodePtr inputNode);
+    Result DestroyAudioSource(const shared_ptr<AssetReaderNode> audioSource);
 
     const AudioSystemConfig& GetConfig() const override
     {
@@ -82,7 +86,7 @@ public:
 
 private:
     AudioSystemConfig _Config;
-    map<shared_ptr<AudioAsset>, set<shared_ptr<AssetReadingNode>>> _AudioSources;
+    map<shared_ptr<AudioAsset>, set<shared_ptr<AssetReaderNode>>> _AudioSources;
     unique_ptr<IAudioGraph> _Graph;
     unique_ptr<IAudioCodec> _Decoder;
     unique_ptr<IAudioDeviceManager> _DeviceManager;

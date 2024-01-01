@@ -39,7 +39,7 @@ enum class Result : u32
     InvalidBufferFrameRateFormat,
     InvalidParameter,
     InvalidState,
-    Ignore,
+    NodeIsVirtual,
     Unknown = UINT32_MAX
 };
 
